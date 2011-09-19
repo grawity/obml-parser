@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+
+# A barebones parser for OBML files used by Opera Mini.
+#
+# Originally intended to extract original URLs from saved pages, after Opera dropped
+# binary compatibilty between minor releases and left me with a bunch of unreadable
+# saved pages in v15 — and it does that.
+
+import sys
+import struct
+
+class Parser():
+	def __init__(self, path):
+		self.path = path
+		self.fh = open(path, 'rb')
+	
+	def debug(self, typ, data):
+		print(typ, repr(data), file=sys.stderr)
+		return data
+	
+	def field(self, name):
+		print(name, end=" = ", file=sys.stderr)
+	
+	def read(self, length):
+		buf = self.fh.read(length)
+		if len(buf) < length:
+			raise IOError("Hit EOF after %d/%d bytes"
+				% (len(buf), length))
+		return self.debug("raw[%d]" % length, buf)
+	
+	def read_byte(self):
+		buf = self.fh.read(1)
+		data, = struct.unpack('>B', buf)
+		return self.debug("byte", data)
+	
+	def read_short(self):
+		buf = self.fh.read(2)
+		data, = struct.unpack('>H', buf)
+		return self.debug("short", data)
+	
+	def read_chunk(self):
+		length = self.read_short()
+		buf = self.fh.read(length)
+		if len(buf) < length:
+			raise IOError("Hit EOF after %d/%d bytes"
+				% (len(buf), length))
+		return self.debug("chunk[%d]" % length, buf)
+	
+	def read_string(self):
+		buf = self.read_chunk()
+		return buf.decode('utf-8')
+
+d = {}
+
+f = Parser(sys.argv[1])
+
+f.field('magic')
+f.read(4) # always 02 D3 'U' 10 ...
+
+f.read(3)
+
+f.field('version')
+d['version'] = f.read_byte()
+
+f.read_short() # always 240
+if d['version'] == 15:
+	f.read(8)
+elif d['version'] == 16:
+	f.read(5)
+else:
+	raise IOError('Unknown version %d' % d['version'])
+
+f.field('title')
+d['title'] = f.read_string()
+
+f.read_chunk()
+# nil on v16, 'C\x10\x10...' on v15
+
+f.field('referer')
+d['referer'] = f.read_string()
+
+f.field('url')
+d['url'] = f.read_string()
+if d['url'][0] == "\0":
+	d['url'] = d['referer'] + d['url'][1:]
+
+print(d["title"])
+print(d["url"])
+print()
