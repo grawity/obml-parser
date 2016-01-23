@@ -46,37 +46,34 @@ class Parser():
         buf = self.read_chunk()
         return buf.decode('utf-8')
 
-d = {}
+for arg in sys.argv[1:]:
+    print("file =", arg)
 
-f = Parser(sys.argv[1])
+    f = Parser(arg)
 
-magic = f.read(4)
-if magic != b'\x02\xd3U\x10':
-    raise IOError('Bad magic number (old OBML format?)')
+    magic = f.read(4)
+    if magic == b'\x02\xd3U\x10':
+        f.read(3)
+        version = f.read_byte()
+        f.read_short() # always 240
 
-f.read(3)
+        if version == 15:
+            f.read(8)
+        elif version == 16:
+            f.read(5)
+        else:
+            raise IOError('Unknown version %d' % version)
 
-version = f.read_byte()
+        page_title = f.read_string()
+        f.read_chunk() # nil on v16, 'C\x10\x10...' on v15
+        page_referer = f.read_string()
+        page_url = f.read_string()
+        if page_url[0] == "\0":
+            page_url = page_referer + page_url[1:]
 
-f.read_short() # always 240
-if version == 15:
-    f.read(8)
-elif version == 16:
-    f.read(5)
-else:
-    raise IOError('Unknown version %d' % version)
-
-page_title = f.read_string()
-
-f.read_chunk()
-# nil on v16, 'C\x10\x10...' on v15
-
-page_referer = f.read_string()
-
-page_url = f.read_string()
-if page_url[0] == "\0":
-    page_url = page_referer + page_url[1:]
-
-print(page_title)
-print(page_url)
-print()
+        print("title =", page_title)
+        print("referer =", page_referer)
+        print("url =", page_url)
+        print()
+    else:
+        raise IOError('Bad magic number (old OBML format?)')
