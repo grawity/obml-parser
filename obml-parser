@@ -5,9 +5,10 @@
 # binary compatibilty between minor releases and left me with a bunch of unreadable
 # saved pages in v15 — and it does that.
 
+import base64
 import os
-import sys
 import struct
+import sys
 
 class Parser():
     def __init__(self, path):
@@ -236,23 +237,33 @@ def parse_file(arg):
         for i in infinity(start=1):
             print("--- section 1 item %d ---" % i)
             type = f.read(1)
-            if type == b"M":
+            if None:
+                pass
+            elif type == b"M":
                 f.read(2)
                 f.read_chunk()
             elif type == b"S":
-                f.read(3)
-                print("??")
-                f.read(2)
-                n = f.read_byte()
-                for j in range(n):
-                    f.read_string()
-                    f.read_string()
-                print("??")
-                f.read(2)
-                n = f.read_byte()
-                for j in range(n):
-                    f.read_string()
-                    f.read_string()
+                f.read(1)
+                buf = f.read(2)
+                # TODO: figure out the damn pattern
+                if buf == b'\x05\xa1':
+                    nj = 0
+                elif buf == b'#y':
+                    nj = 2
+                elif buf == b'!\xe3':
+                    nj = 2
+                elif buf == b'&\xdd':
+                    nj = 2
+                else:
+                    nj = 0
+                for j in range(nj):
+                    print("??")
+                    f.read(2)
+                    nk = f.read_byte()
+                    for k in range(nk):
+                        f.read_string()
+                        f.read_string()
+                #f.read(512)
                 break
             else:
                 f.read(1024)
