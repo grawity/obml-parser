@@ -13,6 +13,7 @@ class Parser():
     def __init__(self, path):
         self.path = path
         self.fh = open(path, 'rb')
+        self.url_base = "\0"
 
     def debug(self, typ, data):
         if os.environ.get("DEBUG"):
@@ -44,7 +45,16 @@ class Parser():
 
     def read_string(self):
         buf = self.read_chunk()
-        return buf.decode('utf-8')
+        buf = buf.decode('utf-8')
+        return self.debug("-> str[%d]" % len(buf), buf)
+
+    def read_url(self, base=None):
+        buf = self.read_string()
+        if buf and buf[0] == "\0":
+            if not base:
+                base = self.url_base
+            buf = base + buf[1:]
+        return self.debug("-> url[%d]" % len(buf), buf)
 
 for arg in sys.argv[1:]:
     print("file =", arg)
@@ -67,14 +77,52 @@ for arg in sys.argv[1:]:
         page_title = f.read_string()
         f.read_chunk() # nil on v16, 'C\x10\x10...' on v15
         page_referer = f.read_string()
-        page_url = f.read_string()
-        if page_url[0] == "\0":
-            page_url = page_referer + page_url[1:]
+        f.url_base = page_referer
+        page_url = f.read_url()
 
         print("title =", page_title)
         print("referer =", page_referer)
         print("url =", page_url)
         print()
+
+        if arg == "99328453.obml16":
+            print("---unknown---")
+            f.read(174)
+
+            print("---links---")
+            for i in range(28):
+                buf = f.read(16) # \x01t\x00\x00L\x01\x00 ...
+                if buf[4:5] in {b"L", b"S"}:
+                    link_url = f.read_url()
+                    print("link =", link_url)
+                else: # I, N
+                    f.read_chunk()
+
+            print("---unknown---")
+            f.read(1081)
+
+            print("---text---")
+            for i in range(200):
+                print(i)
+                type = f.read(1)
+                f.read(1)
+                if type == b"T":
+                    # text line
+                    f.read(16)
+                    buf = f.read_string()
+                    #print(buf)
+                elif type == b"B":
+                    f.read(13)
+                elif type == b"I":
+                    f.read(24)
+                else:
+                    print("!!! unknown type %r" % type)
+                    f.read(128)
+                    break
+
+            #print("---unknown---")
+            #f.read(1081)
+
     elif magic == b'\x02\xce\x9a\x0c':
         f.read(10)
         page_title = f.read_string()
