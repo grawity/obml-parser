@@ -462,6 +462,7 @@ font_sizes = {
 
 for arg in sys.argv[1:]:
     with open("%s.html" % arg, "w") as fout:
+        fout.write('<!DOCTYPE html>\n')
         for item in parse_file(arg):
             type = item["_type"]
             pprint(item)
