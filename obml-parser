@@ -27,12 +27,20 @@ class Parser():
         return self.debug("raw[%d]" % length, buf)
 
     def read_byte(self):
-        buf = self.fh.read(1)
+        length = 1
+        buf = self.fh.read(length)
+        if len(buf) < length:
+            raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
+
         data, = struct.unpack('>B', buf)
         return self.debug("byte", data)
 
     def read_short(self):
-        buf = self.fh.read(2)
+        length = 2
+        buf = self.fh.read(length)
+        if len(buf) < length:
+            raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
+
         data, = struct.unpack('>H', buf)
         return self.debug("short", data)
 
@@ -41,6 +49,7 @@ class Parser():
         buf = self.fh.read(length)
         if len(buf) < length:
             raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
+
         return self.debug("chunk[%d]" % length, buf)
 
     def read_string(self):
@@ -55,6 +64,12 @@ class Parser():
                 base = self.url_base
             buf = base + buf[1:]
         return self.debug("-> url[%d]" % len(buf), buf)
+
+def infinity(start=0):
+    i = start
+    while True:
+        yield i
+        i += 1
 
 for arg in sys.argv[1:]:
     print("file =", arg)
@@ -85,40 +100,75 @@ for arg in sys.argv[1:]:
         print("url =", page_url)
         print()
 
+        _unk1 = None
+        _unk2 = 11
         if arg == "99328453.obml16":
+            _unk1 = 174
+            _unk2 = 1081
+            _ntext = 162 # S \x08\x20 = 8
+        elif arg == "56127603.obml16":
+            _unk1 = 192
+            _ntext = 186 # S \x03\x8e = 2
+        elif arg == "90483687.obml16":
+            _unk1 = 3325
+        else:
+            b = f.read(8192)
+            p = b.find(b"\x01t")
+            print("first pos", p)
+
+        if _unk1:
             print("---unknown---")
-            f.read(174)
+            f.read(_unk1)
 
             print("---links---")
-            for i in range(28):
+            for i in infinity(start=1):
+                print("link", i)
                 buf = f.read(16) # \x01t\x00\x00L\x01\x00 ...
                 if buf[4:5] in {b"L", b"S"}:
                     link_url = f.read_url()
-                    print("link =", link_url)
+                    if link_url:
+                        print("link =", link_url)
+                    else:
+                        print("found", i, "links")
+                        break
                 else: # I, N
-                    f.read_chunk()
+                    buf = f.read_chunk()
 
             print("---unknown---")
-            f.read(1081)
+            f.read(11)
 
             print("---text---")
-            for i in range(200):
-                print(i)
+            #for i in infinity(start=1):
+            for i in range(100):
+                print("text", i+1)
                 type = f.read(1)
                 f.read(1)
                 if type == b"T":
                     # text line
-                    f.read(16)
-                    buf = f.read_string()
-                    #print(buf)
+                    buf = f.read(16)
+                    if buf[-1] == 0:
+                        buf = f.read_string()
+                        print(buf)
+                    else:
+                        f.read(64)
+                        print("! giving up"); break
                 elif type == b"B":
                     f.read(13)
                 elif type == b"I":
                     f.read(24)
+                elif type == b"F":
+                    f.read(15)
+                    f.read_chunk()
+                    f.read(8)
+                elif type == b"S":
+                    f.read(2)
+                    for j in range(10): # arbitrary number
+                        f.read_chunk()
+                    print("! giving up"); break
                 else:
                     print("!!! unknown type %r" % type)
                     f.read(128)
-                    break
+                    print("! giving up"); break
 
             #print("---unknown---")
             #f.read(1081)
