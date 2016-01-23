@@ -217,7 +217,10 @@ def parse_file(arg):
             if i > 1000:
                 print("! limit reached"); return
 
-    elif magic == b'\x02\xce\x9a\x0c':
+    elif magic == b'\x02\xce\x9a\x0c' \
+      or magic == b'\x00\xe5\xfd\x0c' \
+      or magic == b'\x00\xe6\x18\x0c' \
+      or magic == b'\x01\x39\xb9\x0c':
         f.read(10)
         page_title = f.read_string()
         f.read_chunk() # nil
@@ -238,6 +241,18 @@ def parse_file(arg):
                 f.read_chunk()
             elif type == b"S":
                 f.read(3)
+                print("??")
+                f.read(2)
+                n = f.read_byte()
+                for j in range(n):
+                    f.read_string()
+                    f.read_string()
+                print("??")
+                f.read(2)
+                n = f.read_byte()
+                for j in range(n):
+                    f.read_string()
+                    f.read_string()
                 break
             else:
                 f.read(1024)
@@ -249,27 +264,46 @@ def parse_file(arg):
             if None:
                 pass
             elif type == b"i":
-                f.read(11)
-                f.read_chunk()
-                f.read_chunk()
+                n = f.read_byte()
+                for j in range(n):
+                    f.read(10)
+                img_type = f.read_string()
+                img_url = f.read_url()
+                print("image =", img_url)
+            elif type == b"C":
+                f.read(24)
             elif type == b"I":
-                f.read(11)
+                n = f.read_byte()
+                for j in range(n):
+                    f.read(10)
                 f.read_chunk()
                 f.read_chunk()
             elif type == b"L":
                 n = f.read_byte()
-                if n == 1:
-                    f.read(12)
-                    f.read_chunk()
-                elif n == 0:
+                if n == 0:
                     f.read(8)
                     break
+                elif 1 <= n <= 5:
+                    f.read(2)
+                    for j in range(n):
+                        f.read(10)
+                    link_url = f.read_url()
+                    print("link =", link_url)
                 else:
                     f.read(1024)
                     raise ValueError("in %r item, unexpected n=%d" % (type, n))
             elif type == b"S":
-                f.read(13)
-                f.read_chunk()
+                n = f.read_byte()
+                for j in range(n):
+                    f.read(10)
+                f.read_string()
+                f.read_string()
+            elif type == b"W":
+                n = f.read_byte()
+                for j in range(n):
+                    f.read(10)
+                f.read_string()
+                f.read_string()
             else:
                 f.read(1024)
                 raise ValueError("in link section, unknown type %r" % type)
