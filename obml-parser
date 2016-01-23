@@ -170,7 +170,29 @@ def parse_file(arg):
         for i in infinity(start=1):
             print("-- content %d --" % i)
             type = f.read(1)
-            if type == b"T":
+            if None:
+                pass
+            elif type == b"B":
+                f.read(1)
+                f.read(13)
+            elif type == b"F":
+                f.read(1)
+                f.read(15)
+                f.read_chunk()
+                f.read(8)
+            elif type == b"I":
+                f.read(1)
+                f.read(24)
+            elif type == b"S":
+                f.read(1)
+                f.read(2)
+                while True: # until EOF
+                    try:
+                        print(">> S-chunk", j+2)
+                        f.read_chunk()
+                    except IOError as e:
+                        print("!", e); return
+            elif type == b"T":
                 # text block
                 f.read(1) # either \x00 or \xff
                 buf = f.read(16)
@@ -186,26 +208,6 @@ def parse_file(arg):
                     print("!!! unknown T-chunk (last byte %r)" % buf[-1])
                     f.read(128)
                     print("! giving up"); return
-            elif type == b"B":
-                f.read(1)
-                f.read(13)
-            elif type == b"I":
-                f.read(1)
-                f.read(24)
-            elif type == b"F":
-                f.read(1)
-                f.read(15)
-                f.read_chunk()
-                f.read(8)
-            elif type == b"S":
-                f.read(1)
-                f.read(2)
-                while True:
-                    try:
-                        print(">> S-chunk", j+2)
-                        f.read_chunk()
-                    except IOError as e:
-                        print("!", e); return
             else:
                 print("!!! unknown content-item type %r" % type)
                 f.read(128)
