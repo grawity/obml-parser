@@ -146,7 +146,8 @@ def parse_file(arg):
                     link_url = f.read_url()
                     f.read(2)
                     link_type = f.read_string()
-                    print("link =", link_url)
+                    if not link_url.startswith("b:"):
+                        print("link =", link_url)
             elif type in {b"I", b"N", b"S"}:
                 n = f.read_byte()
                 if n != 1:
@@ -168,6 +169,9 @@ def parse_file(arg):
             type = f.read(1)
             if None:
                 pass
+            elif type == b"o":
+                # TODO: not sure if actual type or just part of preceding "I"-block
+                f.read_chunk()
             elif type == b"B":
                 f.read(1)
                 f.read(13)
@@ -179,6 +183,9 @@ def parse_file(arg):
             elif type == b"I":
                 f.read(1)
                 f.read(24)
+            elif type == b"M":
+                f.read(2)
+                f.read_chunk()
             elif type == b"S":
                 f.read(1)
                 f.read(2)
@@ -254,11 +261,43 @@ def parse_file(arg):
                 if n == 1:
                     f.read(12)
                     f.read_chunk()
+                elif n == 0:
+                    f.read(8)
+                    break
                 else:
                     f.read(1024)
                     raise ValueError("in %r item, unexpected n=%d" % (type, n))
             elif type == b"S":
                 f.read(13)
+                f.read_chunk()
+            else:
+                f.read(1024)
+                raise ValueError("in link section, unknown type %r" % type)
+
+        for i in infinity(start=1):
+            print("--- section 2 item %d ---" % i)
+            type = f.read(1)
+            if None:
+                pass
+            elif type == b"B":
+                f.read(1)
+                f.read(13)
+            elif type == b"F":
+                f.read(16)
+                f.read_chunk()
+                f.read_chunk()
+                f.read(3)
+            elif type == b"I":
+                f.read(20)
+            elif type == b"S":
+                f.read(3)
+                while True:
+                    try:
+                        f.read_chunk()
+                    except OSError as e:
+                        return
+            elif type == b"T":
+                f.read(15)
                 f.read_chunk()
             else:
                 f.read(1024)
