@@ -390,6 +390,6 @@ for arg in sys.argv[1:]:
                     "color: %02x%02x%02x" % item["color"]
                 ]
                 style = "; ".join(style)
-                print('<div style="%s">' % style, file=fout)
-                print(item["text"], file=fout)
-                print('</div>', file=fout)
+                fout.write('<div style="%s">' % style)
+                fout.write(item["text"])
+                fout.write('</div>')
