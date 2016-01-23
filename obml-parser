@@ -98,18 +98,6 @@ def parse_file(arg):
         print("referer =", page_referer)
         print("url =", page_url)
 
-        _unk1 = None
-        if arg == "99328453.obml16":
-            _unk1 = 174
-        elif arg == "56127603.obml16":
-            _unk1 = 175
-        elif arg == "90483687.obml16":
-            _unk1 = 3301
-        elif arg == "36318143.obml16":
-            _unk1 = 79
-        else:
-            print("! unknown file, giving up"); return
-
         f.read(6)
 
         # section 1 - unknown data
@@ -117,20 +105,8 @@ def parse_file(arg):
         for i in infinity(start=1):
             type = f.read(1)
             if type == b"M":
-                subtype = f.read(1)
-                if subtype == b"c":
-                    f.read(6)
-                elif subtype == b"u":
-                    f.read(7)
-                elif subtype == b"B":
-                    f.read(7)
-                elif subtype == b"C":
-                    f.read(1)
-                    f.read_chunk()
-                else:
-                    print("!!! type %r subtype %r" % (type, subtype))
-                    f.read(64)
-                    print("! giving up"); return
+                f.read(2)
+                f.read_chunk()
             elif type == b"S":
                 f.read(3)
                 print("end of unknown section")
