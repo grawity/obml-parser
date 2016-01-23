@@ -80,6 +80,7 @@ def parse_file(arg):
 
     f = Parser(arg)
 
+    # alwyas 02 D3 55 10 ?? ?? ??
     magic = f.read(4)
     if magic == b'\x02\xd3\x55\x10':
         magic += f.read(3)
@@ -88,8 +89,10 @@ def parse_file(arg):
         print("version =", version)
 
         if version == 16:
-            magic = f.read(5) # \x00\xf0\x02\x1e\x95, \x00\xf0\x01\x38\x59
-            magic += f.read(2) # \xff\xff
+            # always 00 F0 ?? ?? ??
+            magic = f.read(5)
+            # always FF FF
+            magic += f.read(2)
             print("unknown 2 =", strhex(magic))
         else:
             raise ValueError('unknown version %d' % version)
@@ -107,12 +110,14 @@ def parse_file(arg):
         # section 1 - unknown data
 
         for i in infinity(start=1):
+            print("-- section 1 item %d --" % i)
             type = f.read(1)
             if type == b"M":
                 f.read(2)
                 f.read_chunk()
             elif type == b"S":
-                f.read(3)
+                f.read(1)
+                f.read(2)
                 print("end of unknown section")
                 break
             else:
@@ -122,7 +127,7 @@ def parse_file(arg):
         # section 2 - links and stuff
 
         for i in infinity(start=1):
-            print("-- item %d --" % i)
+            print("-- section 2 item %d --" % i)
             type = f.read(1)
             if None:
                 pass
@@ -144,8 +149,11 @@ def parse_file(arg):
                 for j in range(n):
                     f.read(10)
                 if n == 0:
-                    f.read(8) # unknown trailer \x00\xe7\x00\x00\xe7\x00\x05@
-                    print("end of link section")
+                    # unknown trailer
+                    # \x00\xe7\x00\x00\xe7\x00\x05\x40
+                    # \x01\x8a\x00\x01\x8a\x00\x04\x39
+                    f.read(8)
+                    # end of link section
                     break
                 else:
                     link_url = f.read_url()
@@ -153,7 +161,7 @@ def parse_file(arg):
                     link_type = f.read_string()
                     if not link_url.startswith("b:"):
                         print("link =", link_url)
-            elif type in {b"I", b"N", b"S"}:
+            elif type in {b"I", b"N", b"S", b"w", b"W"}:
                 n = f.read_byte()
                 if n != 1:
                     raise ValueError("in type %r, unexpected count %d" % (type, n))
@@ -178,44 +186,33 @@ def parse_file(arg):
                 # TODO: not sure if actual type or just part of preceding "I"-block
                 f.read_chunk()
             elif type == b"B":
-                f.read(1)
-                f.read(13)
+                f.read(14)
             elif type == b"F":
-                f.read(1)
-                f.read(15)
+                f.read(16)
                 f.read_chunk()
                 f.read_chunk()
                 f.read(5)
             elif type == b"I":
-                f.read(1)
-                f.read(24)
+                f.read(25)
             elif type == b"M":
                 f.read(2)
                 f.read_chunk()
             elif type == b"S":
-                f.read(1)
-                f.read(2)
-                while True: # until EOF
-                    try:
-                        print(">> S-chunk", j+2)
-                        f.read_chunk()
-                    except IOError as e:
-                        print("!", e); return
+                f.read(3)
+                while True:
+                    print(">> S-chunk", j+2)
+                    f.read_chunk()
             elif type == b"T":
                 # text block
-                f.read(1) # either \x00 or \xff
-                buf = f.read(16)
-                if buf[-1] == 0:
-                    # plain text
-                    buf = f.read_string()
-                    #print(buf)
-                elif buf[-1] == 1:
-                    # link?
+                f.read(16)
+                n = f.read_byte()
+                for j in range(n):
                     f.read(5)
-                    buf = f.read_string()
+                buf = f.read_string()
+                if n:
+                    print("text link?[%d] =" % n, buf)
                 else:
-                    f.read(128)
-                    raise ValueError("in content %r chunk, unrecognized header %r" % (type, buf))
+                    print("text =", buf)
             else:
                 f.read(1024)
                 raise ValueError("in content section, unknown type %r" % type)
