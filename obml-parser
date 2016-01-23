@@ -87,7 +87,7 @@ def parse_file(arg):
             f.read(5) # \x00\xf0\x02\x1e\x95
             f.read(2) # \xff\xff
         else:
-            raise IOError('Unknown version %d' % version)
+            raise ValueError('unknown version %d' % version)
 
         page_title = f.read_string()
         f.read_chunk() # nil on v16, 'C\x10\x10...' on v15
@@ -111,16 +111,14 @@ def parse_file(arg):
                 print("end of unknown section")
                 break
             else:
-                print("!!! type %r" % type)
                 f.read(64)
-                print("! giving up"); return
+                raise ValueError("in unknown section, unknown type %r" % type)
 
         # section 2 - links and stuff
 
         for i in infinity(start=1):
             print("-- item %d --" % i)
             type = f.read(1)
-
             if None:
                 pass
             elif type == b"\x00":
@@ -152,8 +150,7 @@ def parse_file(arg):
             elif type in {b"I", b"N", b"S"}:
                 n = f.read_byte()
                 if n != 1:
-                    print("!!! type %r n %r" % (type, n))
-                    print("! giving up"); return
+                    raise ValueError("in type %r, unexpected count %d" % (type, n))
                 for j in range(n):
                     f.read(10)
                 f.read_chunk()
@@ -161,8 +158,7 @@ def parse_file(arg):
                 f.read_chunk()
             else:
                 f.read(64)
-                print("!!! unknown link-item type %r" % type)
-                print("! giving up"); return
+                raise ValueError("in link section, unknown type %r" % type)
 
         # section 3 - content
 
@@ -205,13 +201,11 @@ def parse_file(arg):
                     f.read(5)
                     buf = f.read_string()
                 else:
-                    print("!!! unknown T-chunk (last byte %r)" % buf[-1])
                     f.read(128)
-                    print("! giving up"); return
+                    raise ValueError("in content %r chunk, unrecognized header %r" % (type, buf))
             else:
-                print("!!! unknown content-item type %r" % type)
-                f.read(128)
-                print("! giving up"); return
+                f.read(1024)
+                raise ValueError("in content section, unknown type %r" % type)
 
             if i > 1000:
                 print("! limit reached"); return
@@ -239,9 +233,8 @@ def parse_file(arg):
                 f.read(3)
                 break
             else:
-                print("!!! unknown type %r" % type)
                 f.read(1024)
-                return
+                raise ValueError("in header section, unknown type %r" % type)
 
         for i in infinity(start=1):
             print("--- section 2 item %d ---" % i)
@@ -263,14 +256,13 @@ def parse_file(arg):
                     f.read_chunk()
                 else:
                     f.read(1024)
-                    break
+                    raise ValueError("in %r item, unexpected n=%d" % (type, n))
             elif type == b"S":
                 f.read(13)
                 f.read_chunk()
             else:
-                print("!!! unknown type %r" % type)
                 f.read(1024)
-                return
+                raise ValueError("in content section, unknown type %r" % type)
     else:
         print("error = unrecognized OBML format")
 
