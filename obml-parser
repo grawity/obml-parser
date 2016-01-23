@@ -52,7 +52,7 @@ for arg in sys.argv[1:]:
     f = Parser(arg)
 
     magic = f.read(4)
-    if magic == b'\x02\xd3U\x10':
+    if magic == b'\x02\xd3\x55\x10':
         f.read(3)
         version = f.read_byte()
         f.read_short() # always 240
@@ -75,5 +75,14 @@ for arg in sys.argv[1:]:
         print("referer =", page_referer)
         print("url =", page_url)
         print()
+    elif magic == b'\x02\xce\x9a\x0c':
+        f.read(10)
+        page_title = f.read_string()
+        f.read_chunk() # nil
+        page_url = f.read_string()
+
+        print("title =", page_title)
+        print("url =", page_url)
+        print()
     else:
-        raise IOError('Bad magic number (old OBML format?)')
+        print("error = unrecognized OBML format")
