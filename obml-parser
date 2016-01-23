@@ -84,22 +84,20 @@ def parse_file(arg):
 
     f = Parser(arg)
 
-    unknown_byte = f.read_byte()
-    expected_size = f.read_short()
+    expected_size = f.read_byte() << 16
+    expected_size |= f.read_short()
     version = f.read_byte()
     print("version =", version)
 
     if version == 16:
-        assert(unknown_byte == 0x02)
-        assert(expected_size == 0xd355)
-
-        expected_size_hi = f.read_byte()
-        expected_size_lo = f.read_short()
-        expected_size = expected_size_hi << 16 | expected_size_lo
-        f.read(8)
+        assert(expected_size == 0x02d355)
+        expected_size = f.read_byte() << 16
+        expected_size |= f.read_short()
 
         exp_total_bytes = expected_size + 7
         exp_links_bytes = 0
+
+        f.read(8)
 
         page_title = f.read_string()
         f.read_chunk() # nil on v16, 'C\x10\x10...' on v15
