@@ -215,18 +215,18 @@ def parse_file(arg):
                 #color_r = f.read_byte()
                 #color_g = f.read_byte()
                 #color_b = f.read_byte()
+                pos_x = -1
+                pos_y = -1
                 n = f.read_byte()
                 for j in range(n):
                     f.read(5)
                 text = f.read_string()
                 yield {"_type": "text",
                        "text": text,
-                       "color": (color_r, color_g, color_b)}
+                       "color": (color_r, color_g, color_b),
+                       "pos": (pos_x, pos_y)}
             else:
                 raise ValueError("in content section, unknown type %r" % type)
-
-            if i > 1000:
-                print("! limit reached"); return
 
         print("section 3 started at %d, ends at %d" % (content_start, f.fh.tell()))
         if f.fh.tell() != content_end:
