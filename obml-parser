@@ -17,7 +17,7 @@ class Parser():
 
     def debug(self, typ, data):
         if os.environ.get("DEBUG"):
-            print("#", typ, repr(data), file=sys.stderr)
+            print("\033[33m", "#", typ, repr(data), "\033[m", file=sys.stderr)
         return data
 
     def read(self, length):
@@ -79,10 +79,11 @@ for arg in sys.argv[1:]:
     magic = f.read(4)
     if magic == b'\x02\xd3\x55\x10':
         f.read(3)
-        version = f.read_byte()
-        f.read_short() # always 240
 
+        version = f.read_byte()
         print("version =", version)
+
+        f.read_short() # always 240
 
         if version == 15:
             f.read(8)
@@ -92,23 +93,29 @@ for arg in sys.argv[1:]:
             raise IOError('Unknown version %d' % version)
 
         page_title = f.read_string()
+        print("title =", page_title)
         f.read_chunk() # nil on v16, 'C\x10\x10...' on v15
         page_referer = f.read_string()
+        print("referer =", page_referer)
         f.url_base = page_referer
         page_url = f.read_url()
-
-        print("title =", page_title)
-        print("referer =", page_referer)
         print("url =", page_url)
+
         print()
+
+        f.read(6)
 
         _unk1 = None
         if arg == "99328453.obml16":
-            _unk1 = 174
+            _unk1 = 174-6
         elif arg == "56127603.obml16":
-            _unk1 = 175
+            _unk1 = 175-6
         elif arg == "90483687.obml16":
-            _unk1 = 3301
+            _unk1 = 3301-6
+        elif arg == "36318143.obml16":
+            _unk1 = 115
+        else:
+            f.read(1024)
 
         if _unk1:
             print("---unknown---")
@@ -116,18 +123,26 @@ for arg in sys.argv[1:]:
 
             print("=== links ===")
             for i in infinity(start=1):
-                print()
                 print("-- item %d --" % i)
                 type = f.read(1)
-                f.read(1)
+                flag = f.read_byte()
                 if type == b"\x00":
                     f.read(9)
-                elif type == b"L": # link target
-                    f.read(10)
+                elif type in {b"L", b"P"}:
+                    if flag == 0 or flag == 1:
+                        f.read(10)
+                    elif flag == 2:
+                        f.read(10)
+                        f.read(10)
+                    else:
+                        f.read(64)
+                        print("!!! unknown link-item flag %r" % flag)
+                        print("! giving up"); break
+
                     url = f.read_url()
-                    f.read(4)
                     if url:
                         print("link =", url)
+                        f.read(4)
                     else:
                         print("end of link section")
                         break
@@ -140,8 +155,9 @@ for arg in sys.argv[1:]:
                     print("!!! unknown link-item type %r" % type)
                     print("! giving up"); break
 
+            break
             print("=== unknown ===")
-            f.read(7)
+            f.read(11)
 
             print("=== content ===")
             for i in infinity(start=1):
@@ -182,6 +198,9 @@ for arg in sys.argv[1:]:
                     print("!!! unknown content-item type %r" % type)
                     f.read(128)
                     print("! giving up"); break
+
+                if i > 10:
+                    print("! limit reached"); break
 
     elif magic == b'\x02\xce\x9a\x0c':
         f.read(10)
