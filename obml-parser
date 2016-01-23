@@ -10,6 +10,8 @@ import os
 import struct
 import sys
 
+from pprint import pprint
+
 class Parser():
     def __init__(self, path):
         self.path = path
@@ -110,7 +112,6 @@ def parse_file(arg):
         f.read(6)
 
         for i in infinity(start=1):
-            print("-- section 1 item %d --" % i)
             type = f.read(1)
             if type == b"M":
                 f.read(2)
@@ -118,10 +119,8 @@ def parse_file(arg):
             elif type == b"S":
                 f.read(1)
                 exp_links_bytes = f.read_short()
-                print("end of unknown section")
                 break
             else:
-                f.read(64)
                 raise ValueError("in unknown section, unknown type %r" % type)
 
         print("section 1 ends at %d" % f.fh.tell())
@@ -348,7 +347,10 @@ def parse_file(arg):
                 color_g = f.read_byte()
                 color_b = f.read_byte()
                 f.read(1)
-                text = f.read_chunk()
+                text = f.read_string()
+                yield {"_type": "text",
+                       "text": text,
+                       "color": (color_r, color_g, color_b)}
             else:
                 raise ValueError("in content section, unknown type %r" % type)
 
@@ -360,4 +362,18 @@ def parse_file(arg):
         raise ValueError('unknown version %d' % version)
 
 for arg in sys.argv[1:]:
-    parse_file(arg)
+    with open("%s.html" % arg, "w") as fout:
+        for item in parse_file(arg):
+            type = item["_type"]
+            pprint(item)
+            if type == "text":
+                style = [
+                    "white-space: pre",
+                    "font-family: sans-serif",
+                    "font-size: 10pt",
+                    "color: %02x%02x%02x" % item["color"]
+                ]
+                style = "; ".join(style)
+                print('<div style="%s">' % style, file=fout)
+                print(item["text"], file=fout)
+                print('</div>', file=fout)
