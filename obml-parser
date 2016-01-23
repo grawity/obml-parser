@@ -18,7 +18,9 @@ class Parser():
 
     def debug(self, typ, data):
         if os.environ.get("DEBUG"):
-            print("\033[33m", "#", typ, repr(data), "\033[m")
+            c_on = "\033[33m" if sys.stdout.isatty() else ""
+            c_off = "\033[m" if sys.stdout.isatty() else ""
+            print(c_on, "#", typ, repr(data), c_off)
         return data
 
     def read(self, length):
@@ -80,22 +82,22 @@ def parse_file(arg):
 
     f = Parser(arg)
 
-    # alwyas 02 D3 55 10 ?? ?? ??
-    magic = f.read(4)
-    if magic == b'\x02\xd3\x55\x10':
-        magic += f.read(3)
-        print("unknown 1 =", strhex(magic))
-        version = f.read_byte()
-        print("version =", version)
+    unknown_byte = f.read_byte()
+    expected_size = f.read_short()
+    version = f.read_byte()
+    print("version =", version)
 
-        if version == 16:
-            # always 00 F0 ?? ?? ??
-            magic = f.read(5)
-            # always FF FF
-            magic += f.read(2)
-            print("unknown 2 =", strhex(magic))
-        else:
-            raise ValueError('unknown version %d' % version)
+    if version == 16:
+        assert(unknown_byte == 0x02)
+        assert(expected_size == 0xd355)
+
+        expected_size_hi = f.read_byte()
+        expected_size_lo = f.read_short()
+        expected_size = expected_size_hi << 16 | expected_size_lo
+        f.read(8)
+
+        exp_total_bytes = expected_size + 7
+        exp_links_bytes = 0
 
         page_title = f.read_string()
         f.read_chunk() # nil on v16, 'C\x10\x10...' on v15
@@ -107,8 +109,6 @@ def parse_file(arg):
 
         f.read(6)
 
-        # section 1 - unknown data
-
         for i in infinity(start=1):
             print("-- section 1 item %d --" % i)
             type = f.read(1)
@@ -117,17 +117,20 @@ def parse_file(arg):
                 f.read_chunk()
             elif type == b"S":
                 f.read(1)
-                f.read(2)
+                exp_links_bytes = f.read_short()
                 print("end of unknown section")
                 break
             else:
                 f.read(64)
                 raise ValueError("in unknown section, unknown type %r" % type)
 
-        # section 2 - links and stuff
+        print("section 1 ends at %d" % f.fh.tell())
 
-        for i in infinity(start=1):
-            print("-- section 2 item %d --" % i)
+        links_start = f.fh.tell()
+        links_end = f.fh.tell() + exp_links_bytes
+
+        while f.fh.tell() < links_end:
+            print("--- links [%d] ---" % f.fh.tell())
             type = f.read(1)
             if None:
                 pass
@@ -148,19 +151,11 @@ def parse_file(arg):
                 n = f.read_byte()
                 for j in range(n):
                     f.read(10)
-                if n == 0:
-                    # unknown trailer
-                    # \x00\xe7\x00\x00\xe7\x00\x05\x40
-                    # \x01\x8a\x00\x01\x8a\x00\x04\x39
-                    f.read(8)
-                    # end of link section
-                    break
-                else:
-                    link_url = f.read_url()
-                    f.read(2)
-                    link_type = f.read_string()
-                    if not link_url.startswith("b:"):
-                        print("link =", link_url)
+                link_url = f.read_url()
+                f.read(2)
+                link_type = f.read_string()
+                if not link_url.startswith("b:"):
+                    print("link =", link_url)
             elif type in {b"I", b"N", b"S", b"w", b"W"}:
                 n = f.read_byte()
                 if n != 1:
@@ -171,14 +166,17 @@ def parse_file(arg):
                 f.read(2)
                 f.read_chunk()
             else:
-                f.read(64)
                 raise ValueError("in link section, unknown type %r" % type)
 
-        # section 3 - content
+        print("section 2 ends at %d" % f.fh.tell())
+        if f.fh.tell() != links_end:
+            raise ValueError("link section ended at %d, expected %d" % (f.fh.tell(), links_end))
 
-        print("=== content ===")
-        for i in infinity(start=1):
-            print("-- content %d --" % i)
+        content_start = f.fh.tell()
+        content_end = exp_total_bytes
+
+        while f.fh.tell() < content_end:
+            print("--- content [%d] ---" % f.fh.tell())
             type = f.read(1)
             if None:
                 pass
@@ -194,17 +192,21 @@ def parse_file(arg):
                 f.read(5)
             elif type == b"I":
                 f.read(25)
+            elif type == b"L":
+                f.read(9)
             elif type == b"M":
                 f.read(2)
                 f.read_chunk()
             elif type == b"S":
                 f.read(3)
-                while True:
-                    print(">> S-chunk", j+2)
+                while f.fh.tell() < content_end:
                     f.read_chunk()
             elif type == b"T":
                 # text block
                 f.read(16)
+                #color_r = f.read_byte()
+                #color_g = f.read_byte()
+                #color_b = f.read_byte()
                 n = f.read_byte()
                 for j in range(n):
                     f.read(5)
@@ -214,22 +216,26 @@ def parse_file(arg):
                 else:
                     print("text =", buf)
             else:
-                f.read(1024)
                 raise ValueError("in content section, unknown type %r" % type)
 
             if i > 1000:
                 print("! limit reached"); return
 
-    elif magic == b'\x02\xce\x9a\x0c' \
-      or magic == b'\x00\xe5\xfd\x0c' \
-      or magic == b'\x00\xe6\x18\x0c' \
-      or magic == b'\x01\x39\xb9\x0c':
+        print("section 3 started at %d, ends at %d" % (content_start, f.fh.tell()))
+        if f.fh.tell() != content_end:
+            raise ValueError("content section ended at %d, expected %d" % (f.fh.tell(), content_end))
+
+    elif version == 12 or version == 13:
+        exp_total_bytes = expected_size + 3
+        exp_links_bytes = 0
+
         f.read(10)
+
         page_title = f.read_string()
         f.read_chunk() # nil
-        page_urlbase = f.read_string()
-        f.url_base = page_urlbase
+        f.url_base = f.read_string()
         page_url = f.read_url()
+
         print("title =", page_title)
         print("url =", page_url)
         print()
@@ -242,87 +248,81 @@ def parse_file(arg):
             if None:
                 pass
             elif type == b"M":
-                f.read(2)
-                f.read_chunk()
-            elif type == b"S":
-                f.read(1)
-                buf = f.read(2)
-                # TODO: figure out the damn pattern
-                if buf == b'\x05\xa1':
-                    nj = 0
-                elif buf == b'#y':
-                    nj = 2
-                elif buf == b'!\xe3':
-                    nj = 2
-                elif buf == b'&\xdd':
-                    nj = 2
-                else:
-                    nj = 0
-                for j in range(nj):
-                    print("??")
+                if version in {12, 13}:
                     f.read(2)
+                    f.read_chunk()
+            elif type == b"S":
+                if version in {12, 13}:
+                    f.read(1)
+                    exp_links_bytes = f.read_short()
+                    break
+            else:
+                raise ValueError("in header section, unknown type %r" % type)
+
+        print("section 1 ends at %d" % f.fh.tell())
+
+        links_start = f.fh.tell()
+        links_end = f.fh.tell() + exp_links_bytes
+
+        while f.fh.tell() < links_end:
+            print("--- links [%d] ---" % f.fh.tell())
+            type = f.read(1)
+            if version == 12:
+                if None:
+                    pass
+                elif type == b"\x00":
+                    f.read(1)
                     nk = f.read_byte()
                     for k in range(nk):
                         f.read_string()
                         f.read_string()
-                #f.read(512)
-                break
-            else:
-                f.read(1024)
-                raise ValueError("in header section, unknown type %r" % type)
-
-        for i in infinity(start=1):
-            print("--- section 2 item %d ---" % i)
-            type = f.read(1)
-            if None:
-                pass
-            elif type == b"i":
-                n = f.read_byte()
-                for j in range(n):
-                    f.read(10)
-                img_type = f.read_string()
-                img_url = f.read_url()
-                print("image =", img_url)
-            elif type == b"C":
-                f.read(24)
-            elif type == b"I":
-                n = f.read_byte()
-                for j in range(n):
-                    f.read(10)
-                f.read_chunk()
-                f.read_chunk()
-            elif type == b"L":
-                n = f.read_byte()
-                if n == 0:
-                    f.read(8)
-                    break
-                elif 1 <= n <= 5:
+                elif type == b"i":
+                    n = f.read_byte()
+                    for j in range(n):
+                        f.read(10)
+                    img_type = f.read_string()
+                    img_url = f.read_url()
+                    print("image =", img_url)
+                elif type == b"C":
+                    f.read(24)
+                elif type == b"L":
+                    n = f.read_byte()
                     f.read(2)
                     for j in range(n):
                         f.read(10)
                     link_url = f.read_url()
                     print("link =", link_url)
+                elif type in {b"I", b"S", b"W"}:
+                    n = f.read_byte()
+                    for j in range(n):
+                        f.read(10)
+                    f.read_chunk()
+                    f.read_chunk()
                 else:
-                    f.read(1024)
-                    raise ValueError("in %r item, unexpected n=%d" % (type, n))
-            elif type == b"S":
-                n = f.read_byte()
-                for j in range(n):
-                    f.read(10)
-                f.read_string()
-                f.read_string()
-            elif type == b"W":
-                n = f.read_byte()
-                for j in range(n):
-                    f.read(10)
-                f.read_string()
-                f.read_string()
-            else:
-                f.read(1024)
-                raise ValueError("in link section, unknown type %r" % type)
+                    raise ValueError("in link section, unknown type %r" % type)
+            elif version == 13:
+                if None:
+                    pass
+                elif type == b"L":
+                    n = f.read_byte()
+                    for j in range(n):
+                        f.read(10)
+                    link_url = f.read_url()
+                    f.read(2)
+                    link_type = f.read_string()
+                    print("link =", link_url)
+                else:
+                    raise ValueError("in link section, unknown type %r" % type)
 
-        for i in infinity(start=1):
-            print("--- section 2 item %d ---" % i)
+        print("section 2 ends at %d" % f.fh.tell())
+        if f.fh.tell() != links_end:
+            raise ValueError("link section ended at %d, expected %d" % (f.fh.tell(), links_end))
+
+        content_start = f.fh.tell()
+        content_end = exp_total_bytes
+
+        while f.fh.tell() < content_end:
+            print("--- content [%d] ---" % f.fh.tell())
             type = f.read(1)
             if None:
                 pass
@@ -336,21 +336,28 @@ def parse_file(arg):
                 f.read(3)
             elif type == b"I":
                 f.read(20)
+            elif type == b"L":
+                f.read(9)
             elif type == b"S":
                 f.read(3)
-                while True:
-                    try:
-                        f.read_chunk()
-                    except OSError as e:
-                        return
+                while f.fh.tell() < content_end:
+                    f.read_chunk()
             elif type == b"T":
-                f.read(15)
-                f.read_chunk()
+                f.read(11)
+                color_r = f.read_byte()
+                color_g = f.read_byte()
+                color_b = f.read_byte()
+                f.read(1)
+                text = f.read_chunk()
             else:
-                f.read(1024)
                 raise ValueError("in content section, unknown type %r" % type)
+
+        print("section 3 started at %d, ends at %d" % (content_start, f.fh.tell()))
+        if f.fh.tell() != content_end:
+            raise ValueError("content section ended at %d, expected %d" % (f.fh.tell(), content_end))
+
     else:
-        print("error = unrecognized OBML format")
+        raise ValueError('unknown version %d' % version)
 
 for arg in sys.argv[1:]:
     parse_file(arg)
