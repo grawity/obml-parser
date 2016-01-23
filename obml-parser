@@ -78,133 +78,158 @@ def parse_file(arg):
 
     magic = f.read(4)
     if magic == b'\x02\xd3\x55\x10':
-        f.read(3)
-
+        f.read(3) # \x0b\x55\x77
+                  # \x00\x3a\x18
         version = f.read_byte()
         print("version =", version)
 
-        f.read_short() # always 240
-
-        if version == 15:
-            f.read(8)
-        elif version == 16:
-            f.read(5)
+        if version == 16:
+            f.read(5) # \x00\xf0\x02\x1e\x95
+            f.read(2) # \xff\xff
         else:
             raise IOError('Unknown version %d' % version)
 
         page_title = f.read_string()
-        print("title =", page_title)
         f.read_chunk() # nil on v16, 'C\x10\x10...' on v15
         page_referer = f.read_string()
-        print("referer =", page_referer)
         f.url_base = page_referer
         page_url = f.read_url()
+        print("title =", page_title)
+        print("referer =", page_referer)
         print("url =", page_url)
-
-        print()
-
-        f.read(6)
 
         _unk1 = None
         if arg == "99328453.obml16":
-            _unk1 = 174-6
+            _unk1 = 174
         elif arg == "56127603.obml16":
-            _unk1 = 175-6
+            _unk1 = 175
         elif arg == "90483687.obml16":
-            _unk1 = 3301-6
+            _unk1 = 3301
         elif arg == "36318143.obml16":
-            _unk1 = 115 - 42
+            _unk1 = 79
         else:
-            f.read(1024)
+            print("! unknown file, giving up"); return
 
-        if _unk1:
-            print("---unknown---")
-            f.read(_unk1)
+        f.read(6)
 
-            print("=== links ===")
-            for i in infinity(start=1):
-                print("-- item %d --" % i)
-                type = f.read(1)
-                if type == b"\x00":
-                    f.read(10)
-                elif type in {b"L", b"P"}:
-                    # count of ???
-                    n = f.read_byte()
-                    for j in range(n):
-                        f.read(10)
-                    if n == 0:
-                        # unknown trailer
-                        # \x00\xe7\x00\x00\xe7\x00\x05@
-                        f.read(8)
-                        print("end of link section")
-                        break
-                    else:
-                        url = f.read_url()
-                        print("link =", url)
-                        # unknown trailer (\x01t\x00\x00)
-                        f.read(4)
-                elif type in {b"I", b"N", b"S"}:
-                    n = f.read_byte()
-                    if n != 1:
-                        print("!!! type %r n %r" % (type, n))
-                        return
-                    for j in range(n):
-                        f.read(10)
-                    # variable-length data
+        # section 1 - unknown data
+
+        for i in infinity(start=1):
+            type = f.read(1)
+            if type == b"M":
+                subtype = f.read(1)
+                if subtype == b"c":
+                    f.read(6)
+                elif subtype == b"u":
+                    f.read(7)
+                elif subtype == b"B":
+                    f.read(7)
+                elif subtype == b"C":
+                    f.read(1)
                     f.read_chunk()
-                    # trailer (\x01t\x00\x00)
-                    f.read(4)
                 else:
+                    print("!!! type %r subtype %r" % (type, subtype))
                     f.read(64)
-                    print("!!! unknown link-item type %r" % type)
+                    print("! giving up"); return
+            elif type == b"S":
+                f.read(3)
+                print("end of unknown section")
+                break
+            else:
+                print("!!! type %r" % type)
+                f.read(64)
+                print("! giving up"); return
+
+        # section 2 - links and stuff
+
+        for i in infinity(start=1):
+            print("-- item %d --" % i)
+            type = f.read(1)
+
+            if type == b"\x00":
+                f.read(10)
+            elif type in {b"L", b"P"}:
+                # count of ???
+                n = f.read_byte()
+                for j in range(n):
+                    f.read(10)
+                if n == 0:
+                    # unknown trailer
+                    # \x00\xe7\x00\x00\xe7\x00\x05@
+                    f.read(8)
+                    print("end of link section")
+                    break
+                else:
+                    url = f.read_url()
+                    print("link =", url)
+                    # unknown trailer (\x01t\x00\x00)
+                    f.read(4)
+            elif type in {b"I", b"N", b"S"}:
+                n = f.read_byte()
+                if n != 1:
+                    print("!!! type %r n %r" % (type, n))
                     print("! giving up"); return
 
-            print("=== content ===")
-            for i in infinity(start=1):
-                print()
-                print("-- content %d --" % i)
-                type = f.read(1)
-                if type == b"T":
-                    # text block
-                    f.read(1) # either \x00 or \xff
-                    buf = f.read(16)
-                    if buf[-1] == 0:
-                        # plain text
-                        buf = f.read_string()
-                        #print(buf)
-                    elif buf[-1] == 1:
-                        # link?
-                        f.read(5)
-                        buf = f.read_string()
-                    else:
-                        print("!!! unknown T-chunk (last byte %r)" % buf[-1])
-                        f.read(128)
-                        print("! giving up"); return
-                elif type == b"B":
-                    f.read(1)
-                    f.read(13)
-                elif type == b"I":
-                    f.read(1)
-                    f.read(24)
-                elif type == b"F":
-                    f.read(1)
-                    f.read(15)
-                    f.read_chunk()
-                    f.read(8)
-                elif type == b"S":
-                    f.read(1)
-                    f.read(2)
-                    for j in range(32): # I think this goes until EOF?
-                        print(">> S-chunk", j+2)
-                        f.read_chunk()
-                    print("! giving up"); return
+                for j in range(n):
+                    f.read(10)
+                # variable-length data
+                f.read_chunk()
+                # trailer (\x01t\x00\x00)
+                f.read(4)
+            else:
+                f.read(64)
+                print("!!! unknown link-item type %r" % type)
+                print("! giving up"); return
+
+        # section 3 - content
+
+        print("=== content ===")
+        for i in infinity(start=1):
+            print("-- content %d --" % i)
+            type = f.read(1)
+            if type == b"T":
+                # text block
+                f.read(1) # either \x00 or \xff
+                buf = f.read(16)
+                if buf[-1] == 0:
+                    # plain text
+                    buf = f.read_string()
+                    #print(buf)
+                elif buf[-1] == 1:
+                    # link?
+                    f.read(5)
+                    buf = f.read_string()
                 else:
-                    print("!!! unknown content-item type %r" % type)
+                    print("!!! unknown T-chunk (last byte %r)" % buf[-1])
                     f.read(128)
                     print("! giving up"); return
+            elif type == b"B":
+                f.read(1)
+                f.read(13)
+            elif type == b"I":
+                f.read(1)
+                f.read(24)
+            elif type == b"F":
+                f.read(1)
+                f.read(15)
+                f.read_chunk()
+                f.read(8)
+            elif type == b"S":
+                f.read(1)
+                f.read(2)
+                while True:
+                    try:
+                        print(">> S-chunk", j+2)
+                        f.read_chunk()
+                    except IOError as e:
+                        print("!", e); return
+            else:
+                print("!!! unknown content-item type %r" % type)
+                f.read(128)
+                print("! giving up"); return
 
-                if i > 1000:
-                    print("! limit reached"); return
+            if i > 1000:
+                print("! limit reached"); return
 
     elif magic == b'\x02\xce\x9a\x0c':
         f.read(10)
