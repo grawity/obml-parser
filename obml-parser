@@ -91,11 +91,10 @@ def parse_file(arg):
 
         page_title = f.read_string()
         f.read_chunk() # nil on v16, 'C\x10\x10...' on v15
-        page_referer = f.read_string()
-        f.url_base = page_referer
+        page_urlbase = f.read_string()
+        f.url_base = page_urlbase
         page_url = f.read_url()
         print("title =", page_title)
-        print("referer =", page_referer)
         print("url =", page_url)
 
         f.read(6)
@@ -211,11 +210,14 @@ def parse_file(arg):
         f.read(10)
         page_title = f.read_string()
         f.read_chunk() # nil
-        page_url = f.read_string()
-
+        page_urlbase = f.read_string()
+        f.url_base = page_urlbase
+        page_url = f.read_url()
         print("title =", page_title)
         print("url =", page_url)
         print()
+
+        #f.read(1000)
     else:
         print("error = unrecognized OBML format")
 
