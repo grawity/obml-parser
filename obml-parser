@@ -425,7 +425,9 @@ for arg in sys.argv[1:]:
             elif type == "image":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
+                repeat = True
                 style = [
+                    "background-image: url('%s')" % item["src"],
                     "position: absolute",
                     "left: %dpx" % item_x,
                     "top: %dpx" % item_y,
@@ -433,4 +435,7 @@ for arg in sys.argv[1:]:
                     "height: %dpx" % item_h,
                 ]
                 style = "; ".join(style)
-                fout.write('<img src="%s" style="%s">' % (item["src"], style))
+                if repeat:
+                    fout.write('<div style="%s"></div>' % style)
+                else:
+                    fout.write('<img src="%s" style="%s">' % (item["src"], style))
