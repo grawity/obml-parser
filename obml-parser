@@ -217,7 +217,50 @@ def parse_file(arg):
         print("url =", page_url)
         print()
 
-        #f.read(1000)
+        f.read(5)
+
+        for i in infinity(start=1):
+            print("--- section 1 item %d ---" % i)
+            type = f.read(1)
+            if type == b"M":
+                f.read(2)
+                f.read_chunk()
+            elif type == b"S":
+                f.read(3)
+                break
+            else:
+                print("!!! unknown type %r" % type)
+                f.read(1024)
+                return
+
+        for i in infinity(start=1):
+            print("--- section 2 item %d ---" % i)
+            type = f.read(1)
+            if None:
+                pass
+            elif type == b"i":
+                f.read(11)
+                f.read_chunk()
+                f.read_chunk()
+            elif type == b"I":
+                f.read(11)
+                f.read_chunk()
+                f.read_chunk()
+            elif type == b"L":
+                n = f.read_byte()
+                if n == 1:
+                    f.read(12)
+                    f.read_chunk()
+                else:
+                    f.read(1024)
+                    break
+            elif type == b"S":
+                f.read(13)
+                f.read_chunk()
+            else:
+                print("!!! unknown type %r" % type)
+                f.read(1024)
+                return
     else:
         print("error = unrecognized OBML format")
 
