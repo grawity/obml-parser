@@ -5,6 +5,7 @@
 # binary compatibilty between minor releases and left me with a bunch of unreadable
 # saved pages in v15 — and it does that.
 
+import os
 import sys
 import struct
 
@@ -14,7 +15,8 @@ class Parser():
         self.fh = open(path, 'rb')
 
     def debug(self, typ, data):
-        print(typ, repr(data), file=sys.stderr)
+        if os.environ.get("DEBUG"):
+            print("#", typ, repr(data), file=sys.stderr)
         return data
 
     def read(self, length):
