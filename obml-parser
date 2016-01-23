@@ -113,7 +113,7 @@ for arg in sys.argv[1:]:
         elif arg == "90483687.obml16":
             _unk1 = 3301-6
         elif arg == "36318143.obml16":
-            _unk1 = 115
+            _unk1 = 115 - 42
         else:
             f.read(1024)
 
@@ -125,48 +125,48 @@ for arg in sys.argv[1:]:
             for i in infinity(start=1):
                 print("-- item %d --" % i)
                 type = f.read(1)
-                flag = f.read_byte()
                 if type == b"\x00":
-                    f.read(9)
+                    f.read(10)
                 elif type in {b"L", b"P"}:
-                    if flag == 0 or flag == 1:
+                    # count of ???
+                    n = f.read_byte()
+                    for j in range(n):
                         f.read(10)
-                    elif flag == 2:
-                        f.read(10)
-                        f.read(10)
-                    else:
-                        f.read(64)
-                        print("!!! unknown link-item flag %r" % flag)
-                        print("! giving up"); break
-
-                    url = f.read_url()
-                    if url:
-                        print("link =", url)
-                        f.read(4)
-                    else:
+                    if n == 0:
+                        # unknown trailer
+                        # \x00\xe7\x00\x00\xe7\x00\x05@
+                        f.read(8)
                         print("end of link section")
                         break
-                elif type in {b"I", b"N", b"P", b"S"}:
-                    f.read(10)
+                    else:
+                        url = f.read_url()
+                        print("link =", url)
+                        # unknown trailer (\x01t\x00\x00)
+                        f.read(4)
+                elif type in {b"I", b"N", b"S"}:
+                    n = f.read_byte()
+                    if n != 1:
+                        print("!!! type %r n %r" % (type, n))
+                        break
+                    for j in range(n):
+                        f.read(10)
+                    # variable-length data
                     f.read_chunk()
+                    # trailer (\x01t\x00\x00)
                     f.read(4)
                 else:
                     f.read(64)
                     print("!!! unknown link-item type %r" % type)
                     print("! giving up"); break
 
-            break
-            print("=== unknown ===")
-            f.read(11)
-
             print("=== content ===")
             for i in infinity(start=1):
                 print()
                 print("-- content %d --" % i)
                 type = f.read(1)
-                f.read(1)
                 if type == b"T":
                     # text block
+                    f.read(1) # either \x00 or \xff
                     buf = f.read(16)
                     if buf[-1] == 0:
                         # plain text
@@ -181,14 +181,18 @@ for arg in sys.argv[1:]:
                         f.read(128)
                         print("! giving up"); break
                 elif type == b"B":
+                    f.read(1)
                     f.read(13)
                 elif type == b"I":
+                    f.read(1)
                     f.read(24)
                 elif type == b"F":
+                    f.read(1)
                     f.read(15)
                     f.read_chunk()
                     f.read(8)
                 elif type == b"S":
+                    f.read(1)
                     f.read(2)
                     for j in range(32): # I think this goes until EOF?
                         print(">> S-chunk", j+2)
@@ -199,7 +203,7 @@ for arg in sys.argv[1:]:
                     f.read(128)
                     print("! giving up"); break
 
-                if i > 10:
+                if i > 1000:
                     print("! limit reached"); break
 
     elif magic == b'\x02\xce\x9a\x0c':
