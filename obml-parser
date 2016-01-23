@@ -121,36 +121,44 @@ def parse_file(arg):
             print("-- item %d --" % i)
             type = f.read(1)
 
-            if type == b"\x00":
+            if None:
+                pass
+            elif type == b"\x00":
                 f.read(10)
+            elif type == b"i":
+                # "i" image
+                n = f.read_byte()
+                for j in range(n):
+                    f.read(10)
+                img_url = f.read_url()
+                f.read(2)
+                img_type = f.read_string()
+                print("image =", img_url)
             elif type in {b"L", b"P"}:
-                # count of ???
+                # "L" link
+                # "P" ??? (usually mailto link)
                 n = f.read_byte()
                 for j in range(n):
                     f.read(10)
                 if n == 0:
-                    # unknown trailer
-                    # \x00\xe7\x00\x00\xe7\x00\x05@
-                    f.read(8)
+                    f.read(8) # unknown trailer \x00\xe7\x00\x00\xe7\x00\x05@
                     print("end of link section")
                     break
                 else:
-                    url = f.read_url()
-                    print("link =", url)
-                    # unknown trailer (\x01t\x00\x00)
-                    f.read(4)
+                    link_url = f.read_url()
+                    f.read(2)
+                    link_type = f.read_string()
+                    print("link =", link_url)
             elif type in {b"I", b"N", b"S"}:
                 n = f.read_byte()
                 if n != 1:
                     print("!!! type %r n %r" % (type, n))
                     print("! giving up"); return
-
                 for j in range(n):
                     f.read(10)
-                # variable-length data
                 f.read_chunk()
-                # trailer (\x01t\x00\x00)
-                f.read(4)
+                f.read(2)
+                f.read_chunk()
             else:
                 f.read(64)
                 print("!!! unknown link-item type %r" % type)
