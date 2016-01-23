@@ -18,7 +18,7 @@ class Parser():
 
     def debug(self, typ, data):
         if os.environ.get("DEBUG"):
-            print("\033[33m", "#", typ, repr(data), "\033[m", file=sys.stderr)
+            print("\033[33m", "#", typ, repr(data), "\033[m")
         return data
 
     def read(self, length):
@@ -72,6 +72,9 @@ def infinity(start=0):
         yield i
         i += 1
 
+def strhex(buf):
+    return " ".join(["%02X" % x for x in buf])
+
 def parse_file(arg):
     print("file =", arg)
 
@@ -79,14 +82,15 @@ def parse_file(arg):
 
     magic = f.read(4)
     if magic == b'\x02\xd3\x55\x10':
-        f.read(3) # \x0b\x55\x77
-                  # \x00\x3a\x18
+        magic += f.read(3)
+        print("unknown 1 =", strhex(magic))
         version = f.read_byte()
         print("version =", version)
 
         if version == 16:
-            f.read(5) # \x00\xf0\x02\x1e\x95
-            f.read(2) # \xff\xff
+            magic = f.read(5) # \x00\xf0\x02\x1e\x95, \x00\xf0\x01\x38\x59
+            magic += f.read(2) # \xff\xff
+            print("unknown 2 =", strhex(magic))
         else:
             raise ValueError('unknown version %d' % version)
 
@@ -180,7 +184,8 @@ def parse_file(arg):
                 f.read(1)
                 f.read(15)
                 f.read_chunk()
-                f.read(8)
+                f.read_chunk()
+                f.read(5)
             elif type == b"I":
                 f.read(1)
                 f.read(24)
