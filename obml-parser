@@ -209,17 +209,19 @@ def parse_file(arg):
             elif type == b"T":
                 # text block
                 f.read(16)
+                color_r = 0
+                color_g = 0
+                color_b = 0
                 #color_r = f.read_byte()
                 #color_g = f.read_byte()
                 #color_b = f.read_byte()
                 n = f.read_byte()
                 for j in range(n):
                     f.read(5)
-                buf = f.read_string()
-                if n:
-                    print("text link?[%d] =" % n, buf)
-                else:
-                    print("text =", buf)
+                text = f.read_string()
+                yield {"_type": "text",
+                       "text": text,
+                       "color": (color_r, color_g, color_b)}
             else:
                 raise ValueError("in content section, unknown type %r" % type)
 
@@ -308,6 +310,27 @@ def parse_file(arg):
             elif version == 13:
                 if None:
                     pass
+                elif type == b"i":
+                    n = f.read_byte()
+                    boxes = []
+                    for j in range(n):
+                        pos_x = f.read_short()
+                        pos_y = f.read_byte() << 16
+                        pos_y |= f.read_short()
+                        size_w = f.read_short()
+                        size_h = f.read_byte() << 16
+                        size_h |= f.read_short()
+                        boxes.append((pos_x, pos_y, size_w, size_h))
+                    img_url = f.read_url()
+                    f.read(2)
+                    img_type = f.read_string()
+                    print("image =", img_url)
+                    for pos_x, pos_y, size_w, size_h in boxes:
+                        yield {"_type": "image",
+                               "src": img_url,
+                               "type": img_type,
+                               "pos": (pos_x, pos_y),
+                               "size": (size_w, size_h)}
                 elif type == b"L":
                     n = f.read_byte()
                     for j in range(n):
@@ -332,8 +355,7 @@ def parse_file(arg):
             if None:
                 pass
             elif type == b"B":
-                f.read(1)
-                f.read(13)
+                f.read(14)
             elif type == b"F":
                 f.read(16)
                 f.read_chunk()
@@ -356,7 +378,10 @@ def parse_file(arg):
                 if f.fh.tell() != files_end:
                     raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
             elif type == b"T":
-                f.read(11)
+                pos_x = f.read_short()
+                pos_y = f.read_byte() << 16
+                pos_y |= f.read_short()
+                f.read(6)
                 color_r = f.read_byte()
                 color_g = f.read_byte()
                 color_b = f.read_byte()
@@ -364,7 +389,8 @@ def parse_file(arg):
                 text = f.read_string()
                 yield {"_type": "text",
                        "text": text,
-                       "color": (color_r, color_g, color_b)}
+                       "color": (color_r, color_g, color_b),
+                       "pos": (pos_x, pos_y)}
             else:
                 raise ValueError("in content section, unknown type %r" % type)
 
@@ -381,13 +407,29 @@ for arg in sys.argv[1:]:
             type = item["_type"]
             pprint(item)
             if type == "text":
+                item_x, item_y = item["pos"]
                 style = [
                     "white-space: pre",
                     "font-family: sans-serif",
                     "font-size: 10pt",
-                    "color: %02x%02x%02x" % item["color"]
+                    "color: %02x%02x%02x" % item["color"],
+                    "position: absolute",
+                    "left: %dpx" % item_x,
+                    "top: %dpx" % item_y,
                 ]
                 style = "; ".join(style)
                 fout.write('<div style="%s">' % style)
                 fout.write(item["text"])
                 fout.write('</div>')
+            elif type == "image":
+                item_x, item_y = item["pos"]
+                item_w, item_h = item["size"]
+                style = [
+                    "position: absolute",
+                    "left: %dpx" % item_x,
+                    "top: %dpx" % item_y,
+                    "width: %dpx" % item_w,
+                    "height: %dpx" % item_h,
+                ]
+                style = "; ".join(style)
+                fout.write('<img src="%s" style="%s">' % (item["src"], style))
