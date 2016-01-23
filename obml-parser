@@ -49,6 +49,15 @@ class Parser():
         data, = struct.unpack('>H', buf)
         return self.debug("short", data)
 
+    def read_medium(self):
+        length = 3
+        buf = self.fh.read(length)
+        if len(buf) < length:
+            raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
+
+        data_hi, data_lo = struct.unpack('>BH', buf)
+        return self.debug("medium", (data_hi << 16) | data_lo)
+
     def read_chunk(self):
         length = self.read_short()
         buf = self.fh.read(length)
@@ -355,7 +364,20 @@ def parse_file(arg):
             if None:
                 pass
             elif type == b"B":
-                f.read(14)
+                pos_x = f.read_short()
+                pos_y = f.read_byte() << 16
+                pos_y |= f.read_short()
+                size_w = f.read_short()
+                size_h = f.read_byte() << 16
+                size_h |= f.read_short()
+                f.read(1)
+                color_r = f.read_byte()
+                color_g = f.read_byte()
+                color_b = f.read_byte()
+                yield {"_type": "box",
+                       "pos": (pos_x, pos_y),
+                       "size": (size_w, size_h),
+                       "fill": (color_r, color_g, color_b)}
             elif type == b"F":
                 f.read(16)
                 f.read_chunk()
@@ -365,6 +387,9 @@ def parse_file(arg):
                 f.read(20)
             elif type == b"L":
                 f.read(9)
+            elif type == b"M":
+                f.read_short()
+                f.read_chunk()
             elif type == b"S":
                 exp_files_bytes = f.read_byte() << 16
                 exp_files_bytes |= f.read_short()
@@ -413,15 +438,15 @@ for arg in sys.argv[1:]:
                     "font-family: sans-serif",
                     "font-size: 9pt",
                     "line-height: 1.1",
-                    "color: %02x%02x%02x" % item["color"],
+                    "color: #%02x%02x%02x" % item["color"],
                     "position: absolute",
                     "left: %dpx" % item_x,
                     "top: %dpx" % item_y,
                 ]
                 style = "; ".join(style)
-                fout.write('<div style="%s">' % style)
+                fout.write('<div class="text" style="%s">' % style)
                 fout.write(item["text"])
-                fout.write('</div>')
+                fout.write('</div>\n')
             elif type == "image":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
@@ -436,6 +461,20 @@ for arg in sys.argv[1:]:
                 ]
                 style = "; ".join(style)
                 if repeat:
-                    fout.write('<div style="%s"></div>' % style)
+                    fout.write('<div class="img" style="%s"></div>' % style)
                 else:
-                    fout.write('<img src="%s" style="%s">' % (item["src"], style))
+                    fout.write('<img src="%s" style="%s">\n' % (item["src"], style))
+            elif type == "box":
+                item_x, item_y = item["pos"]
+                item_w, item_h = item["size"]
+                repeat = True
+                style = [
+                    "background-color: #%02x%02x%02x" % item["fill"],
+                    "position: absolute",
+                    "left: %dpx" % item_x,
+                    "top: %dpx" % item_y,
+                    "width: %dpx" % item_w,
+                    "height: %dpx" % item_h,
+                ]
+                style = "; ".join(style)
+                fout.write('<div class="box" style="%s"></div>\n' % style)
