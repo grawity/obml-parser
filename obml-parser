@@ -497,7 +497,8 @@ def parse_file(arg):
             elif type == b"T":
                 pos_x = f.read_short()
                 pos_y = f.read_medium()
-                f.read(5)
+                size_w = f.read_short()
+                size_h = f.read_medium()
                 color_a = f.read_byte()
                 color_r = f.read_byte()
                 color_g = f.read_byte()
@@ -508,7 +509,8 @@ def parse_file(arg):
                        "text": text,
                        "font": font,
                        "color": (color_a, color_r, color_g, color_b),
-                       "pos": (pos_x, pos_y)}
+                       "pos": (pos_x, pos_y),
+                       "size": (size_w, size_h)}
             else:
                 raise ValueError("in content section, unknown type %r" % type)
 
