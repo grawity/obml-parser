@@ -207,6 +207,8 @@ def parse_file(arg):
 
         last_T_pos_x = 0
         last_T_pos_y = 0
+        last_T_size_w = 0
+        last_T_size_h = 0
 
         while f.fh.tell() < content_end:
             print("--- content [%d] ---" % f.fh.tell())
@@ -217,14 +219,61 @@ def parse_file(arg):
                 # TODO: not sure if actual type or just part of preceding "I"-block
                 f.read_chunk()
             elif type == b"B":
-                f.read(14)
+                # TODO: broken
+
+                offset_x = f.read_short()
+                offset_y = f.read_byte() << 16
+                offset_y |= f.read_short()
+
+                size_w = f.read_short()
+                size_h = f.read_byte() << 16
+                size_h |= f.read_short()
+
+                color_a = f.read_byte()
+                color_r = f.read_byte()
+                color_g = f.read_byte()
+                color_b = f.read_byte()
+
+                _last_T_pos_x = last_T_pos_x
+                _last_T_pos_y = last_T_pos_y
+
+                if offset_x & 0xFF00:
+                    pos_x = last_T_pos_x + (0x10000 - offset_x)
+                    #last_T_pos_x = 0
+                else:
+                    pos_x = last_T_pos_x + offset_x
+                    last_T_pos_x = pos_x
+
+                if offset_y & 0xFF0000:
+                    pos_y = last_T_pos_y + (0x1000000 - offset_y)
+                    #last_T_pos_y = 0
+                else:
+                    pos_y = last_T_pos_y + offset_y
+                    last_T_pos_y = pos_y
+
+                yield {"_type": "box",
+                       "pos": (pos_x, pos_y),
+                       "size": (size_w, size_h),
+                       "fill": (color_a, color_r, color_g, color_b)}
             elif type == b"F":
                 f.read(16)
                 f.read_chunk()
                 f.read_chunk()
                 f.read(5)
             elif type == b"I":
-                f.read(25)
+                x = f.read_short()
+                y = f.read_byte() << 16
+                y |= f.read_short()
+                print("=", x, y, "(0x%04x, 0x%06x)" % (x, y))
+                w = f.read_short()
+                h = f.read_byte() << 16
+                h |= f.read_short()
+                print("=", w, h, "(0x%04x, 0x%06x)" % (w, h))
+                f.read(15)
+                #yield {"_type": "box",
+                #       "pos": (x, y),
+                #       "size": (w, h),
+                #       "fill": (127, 255, 0, 0)}
             elif type == b"L":
                 f.read(9)
             elif type == b"M":
@@ -243,48 +292,65 @@ def parse_file(arg):
                 if f.fh.tell() != files_end:
                     raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
             elif type == b"T":
-                # text block
-                pos_x = pos_y = 0
-                color_a = color_r = color_g = color_b = 0
-                font = 0
+                # TODO: also broken
+
                 offset_x = f.read_short()
                 offset_y = f.read_byte() << 16
                 offset_y |= f.read_short()
-                f.read(5)
-                f.read(6)
-                #pos_y = f.read_byte() << 16
-                #pos_y |= f.read_short()
-                #color_a = f.read_byte()
-                #color_r = f.read_byte()
-                #color_g = f.read_byte()
-                #color_b = f.read_byte()
-                #f.read(16)
+                print("== coord 1: (%d, %d) / (0x%04x, 0x%06x)" % (offset_x, offset_y, offset_x, offset_y))
 
-                print("=", "last X", last_T_pos_x, "this", offset_x, hex(offset_x))
-                if offset_x & 0xFF00:
-                    pos_x = 0 # XXX
-                else:
-                    pos_x = last_T_pos_x + offset_x
+                size_w = f.read_short()
+                size_h = f.read_byte() << 16
+                size_h |= f.read_short()
+                print("== coord 2: (%d, %d) / (0x%04x, 0x%06x)" % (size_w, size_h, size_w, size_h))
 
-                print("=", "last Y", last_T_pos_y, "this", offset_y, hex(offset_y))
-                if offset_y & 0xFFFF00:
-                    pos_x = 0 # XXX
-                else:
-                    pos_y = last_T_pos_y + offset_y
+                color_a = f.read_byte()
+                color_r = f.read_byte()
+                color_g = f.read_byte()
+                color_b = f.read_byte()
+
+                f.read(2); font = 4
 
                 n = f.read_byte()
                 for j in range(n):
-                    print("text link", f.read(3))
+                    print("text link", f.read(1), f.read_chunk())
                 text = f.read_string()
+
+                _last_T_pos_x = last_T_pos_x
+                _last_T_pos_y = last_T_pos_y
+
+                color_r, color_g, color_b = 0, 0, 0
+
+                if offset_x & 0xFF00:
+                    # this works...
+                    color_b = 255
+                    pos_x = 0
+                    last_T_pos_x = pos_x
+                else:
+                    pos_x = last_T_pos_x + offset_x
+                    last_T_pos_x = pos_x
+
+                if offset_y & 0xFF0000:
+                    # ...this doesn't
+                    color_r = 255
+                    pos_y = 0
+                    last_T_pos_y = pos_y
+                else:
+                    pos_y = last_T_pos_y + offset_y
+                    last_T_pos_y = pos_y
+
+                print("=", "last x", _last_T_pos_x, "this", offset_x, hex(offset_x), "->", pos_x, "(width %d)" % size_w)
+                print("=", "last Y", _last_T_pos_y, "this", offset_y, hex(offset_y), "->", pos_y, "(height %d)" % size_h)
+
+                last_T_size_w = size_w
+                last_T_size_h = size_h
+
                 yield {"_type": "text",
                        "text": text,
                        "font": font,
                        "color": (color_a, color_r, color_g, color_b),
-                       "pos": (pos_x, pos_y)}
-                last_T_pos_x = pos_x
-                last_T_pos_y = pos_y
-                #last_T_size_h = size_h
-                #last_T_size_w = size_w
+                       "pos": (pos_x, pos_y),
+                       "size": (size_w, size_h)}
             else:
                 raise ValueError("in content section, unknown type %r" % type)
 
@@ -521,6 +587,12 @@ for arg in sys.argv[1:]:
                     "left: %dpx" % item_x,
                     "top: %dpx" % item_y,
                 ]
+                if "size" in item:
+                    style += [
+                        "width: %dpx" % item["size"][0],
+                        "height: %dpx" % item["size"][1],
+                        "outline: 1px dotted %s" % rgba(item["color"]),
+                    ]
                 style = "; ".join(style)
                 fout.write('<div class="text" style="%s">' % style)
                 fout.write(item["text"])
