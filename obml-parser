@@ -88,6 +88,11 @@ def infinity(start=0):
 def strhex(buf):
     return " ".join(["%02X" % x for x in buf])
 
+def rgba(argb_tuple):
+    a, r, g, b = argb_tuple
+    a = (a / 255) if a > 0 else 1.0
+    return "rgba(%d, %d, %d, %.6f)" % (r, g, b, a)
+
 def parse_file(arg):
     print("file =", arg)
 
@@ -115,6 +120,9 @@ def parse_file(arg):
         page_url = f.read_url()
         print("title =", page_title)
         print("url =", page_url)
+        yield {"_type": "head",
+               "title": page_title,
+               "url": page_url}
 
         f.read(6)
 
@@ -270,10 +278,9 @@ def parse_file(arg):
         f.read_chunk() # nil
         f.url_base = f.read_string()
         page_url = f.read_url()
-
-        print("title =", page_title)
-        print("url =", page_url)
-        print()
+        yield {"_type": "head",
+               "title": page_title,
+               "url": page_url}
 
         f.read(5)
 
@@ -396,14 +403,14 @@ def parse_file(arg):
                 size_w = f.read_short()
                 size_h = f.read_byte() << 16
                 size_h |= f.read_short()
-                f.read(1)
+                color_a = f.read_byte()
                 color_r = f.read_byte()
                 color_g = f.read_byte()
                 color_b = f.read_byte()
                 yield {"_type": "box",
                        "pos": (pos_x, pos_y),
                        "size": (size_w, size_h),
-                       "fill": (color_r, color_g, color_b)}
+                       "fill": (color_a, color_r, color_g, color_b)}
             elif type == b"F":
                 f.read(16)
                 f.read_chunk()
@@ -432,7 +439,8 @@ def parse_file(arg):
                 pos_x = f.read_short()
                 pos_y = f.read_byte() << 16
                 pos_y |= f.read_short()
-                f.read(6)
+                f.read(5)
+                color_a = f.read_byte()
                 color_r = f.read_byte()
                 color_g = f.read_byte()
                 color_b = f.read_byte()
@@ -441,7 +449,7 @@ def parse_file(arg):
                 yield {"_type": "text",
                        "text": text,
                        "font": font,
-                       "color": (color_r, color_g, color_b),
+                       "color": (color_a, color_r, color_g, color_b),
                        "pos": (pos_x, pos_y)}
             else:
                 raise ValueError("in content section, unknown type %r" % type)
@@ -463,10 +471,17 @@ font_sizes = {
 for arg in sys.argv[1:]:
     with open("%s.html" % arg, "w") as fout:
         fout.write('<!DOCTYPE html>\n')
+        fout.write('<style>\n')
+        fout.write('.box { z-index: -100; }\n')
+        fout.write('.img { z-index: -50; }\n')
+        fout.write('</style>\n')
         for item in parse_file(arg):
             type = item["_type"]
             pprint(item)
-            if type == "text":
+            if type == "head":
+                fout.write('<!-- origin: %s -->\n' % item["url"])
+                fout.write('<title>%s</title>\n' % item["title"])
+            elif type == "text":
                 item_x, item_y = item["pos"]
                 font_size = item["font"] & ~1
                 font_weight = item["font"] & 1
@@ -476,7 +491,7 @@ for arg in sys.argv[1:]:
                     "font-size: %s" % font_sizes[font_size],
                     "font-weight: %s" % ("bold" if font_weight else "normal"),
                     "line-height: 1.1",
-                    "color: #%02x%02x%02x" % item["color"],
+                    "color: %s" % rgba(item["color"]),
                     "position: absolute",
                     "left: %dpx" % item_x,
                     "top: %dpx" % item_y,
@@ -499,7 +514,7 @@ for arg in sys.argv[1:]:
                 ]
                 style = "; ".join(style)
                 if repeat:
-                    fout.write('<div class="img" style="%s"></div>' % style)
+                    fout.write('<div class="img" style="%s"></div>\n' % style)
                 else:
                     fout.write('<img src="%s" style="%s">\n' % (item["src"], style))
             elif type == "box":
@@ -507,7 +522,7 @@ for arg in sys.argv[1:]:
                 item_w, item_h = item["size"]
                 repeat = True
                 style = [
-                    "background-color: #%02x%02x%02x" % item["fill"],
+                    "background-color: %s" % rgba(item["fill"]),
                     "position: absolute",
                     "left: %dpx" % item_x,
                     "top: %dpx" % item_y,
