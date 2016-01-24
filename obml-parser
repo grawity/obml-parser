@@ -98,15 +98,13 @@ def parse_file(arg):
 
     f = Parser(arg)
 
-    expected_size = f.read_byte() << 16
-    expected_size |= f.read_short()
+    expected_size = f.read_medium()
     version = f.read_byte()
     print("version =", version)
 
     if version == 16:
         assert(expected_size == 0x02d355)
-        expected_size = f.read_byte() << 16
-        expected_size |= f.read_short()
+        expected_size = f.read_medium()
 
         exp_total_bytes = expected_size + 7
         exp_links_bytes = 0
@@ -222,12 +220,10 @@ def parse_file(arg):
                 # TODO: broken
 
                 offset_x = f.read_short()
-                offset_y = f.read_byte() << 16
-                offset_y |= f.read_short()
+                offset_y = f.read_medium()
 
                 size_w = f.read_short()
-                size_h = f.read_byte() << 16
-                size_h |= f.read_short()
+                size_h = f.read_medium()
 
                 color_a = f.read_byte()
                 color_r = f.read_byte()
@@ -262,12 +258,10 @@ def parse_file(arg):
                 f.read(5)
             elif type == b"I":
                 x = f.read_short()
-                y = f.read_byte() << 16
-                y |= f.read_short()
+                y = f.read_medium()
                 print("=", x, y, "(0x%04x, 0x%06x)" % (x, y))
                 w = f.read_short()
-                h = f.read_byte() << 16
-                h |= f.read_short()
+                h = f.read_medium()
                 print("=", w, h, "(0x%04x, 0x%06x)" % (w, h))
                 f.read(15)
                 #yield {"_type": "box",
@@ -280,8 +274,7 @@ def parse_file(arg):
                 f.read(2)
                 f.read_chunk()
             elif type == b"S":
-                exp_files_bytes = f.read_byte() << 16
-                exp_files_bytes |= f.read_short()
+                exp_files_bytes = f.read_medium()
                 files_start = f.fh.tell()
                 files_end = f.fh.tell() + exp_files_bytes
                 while f.fh.tell() < files_end:
@@ -295,13 +288,11 @@ def parse_file(arg):
                 # TODO: also broken
 
                 offset_x = f.read_short()
-                offset_y = f.read_byte() << 16
-                offset_y |= f.read_short()
+                offset_y = f.read_medium()
                 print("== coord 1: (%d, %d) / (0x%04x, 0x%06x)" % (offset_x, offset_y, offset_x, offset_y))
 
                 size_w = f.read_short()
-                size_h = f.read_byte() << 16
-                size_h |= f.read_short()
+                size_h = f.read_medium()
                 print("== coord 2: (%d, %d) / (0x%04x, 0x%06x)" % (size_w, size_h, size_w, size_h))
 
                 color_a = f.read_byte()
@@ -440,11 +431,9 @@ def parse_file(arg):
                     boxes = []
                     for j in range(n):
                         pos_x = f.read_short()
-                        pos_y = f.read_byte() << 16
-                        pos_y |= f.read_short()
+                        pos_y = f.read_medium()
                         size_w = f.read_short()
-                        size_h = f.read_byte() << 16
-                        size_h |= f.read_short()
+                        size_h = f.read_medium()
                         boxes.append((pos_x, pos_y, size_w, size_h))
                     img_url = f.read_url()
                     f.read(2)
@@ -488,11 +477,9 @@ def parse_file(arg):
                 pass
             elif type == b"B":
                 pos_x = f.read_short()
-                pos_y = f.read_byte() << 16
-                pos_y |= f.read_short()
+                pos_y = f.read_medium()
                 size_w = f.read_short()
-                size_h = f.read_byte() << 16
-                size_h |= f.read_short()
+                size_h = f.read_medium()
                 color_a = f.read_byte()
                 color_r = f.read_byte()
                 color_g = f.read_byte()
@@ -514,8 +501,7 @@ def parse_file(arg):
                 f.read_short()
                 f.read_chunk()
             elif type == b"S":
-                exp_files_bytes = f.read_byte() << 16
-                exp_files_bytes |= f.read_short()
+                exp_files_bytes = f.read_medium()
                 files_start = f.fh.tell()
                 files_end = f.fh.tell() + exp_files_bytes
                 while f.fh.tell() < files_end:
@@ -527,8 +513,7 @@ def parse_file(arg):
                     raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
             elif type == b"T":
                 pos_x = f.read_short()
-                pos_y = f.read_byte() << 16
-                pos_y |= f.read_short()
+                pos_y = f.read_medium()
                 f.read(5)
                 color_a = f.read_byte()
                 color_r = f.read_byte()
