@@ -155,51 +155,55 @@ def parse_file(arg):
             if None:
                 pass
             elif type == b"\x00":
+                # <option> selections
                 f.read(1)
-                nk = f.read_byte()
-                for k in range(nk):
+                n = f.read_byte()
+                for j in range(n):
                     f.read_string()
                     f.read_string()
             elif type == b"i":
                 # "i" image
                 n = f.read_byte()
+                boxes = []
                 for j in range(n):
-                    f.read(10)
+                    pos_x = f.read_short()
+                    pos_y = f.read_medium()
+                    size_w = f.read_short()
+                    size_h = f.read_medium()
+                    boxes.append((pos_x, pos_y, size_w, size_h))
                 img_url = f.read_url()
-                f.read(2)
+                assert(f.read(2) == b"\x01t")
                 img_type = f.read_string()
-                print("image =", img_url)
-            elif type == b"C":
-                n = f.read_byte()
-                for j in range(n):
-                    f.read(10)
-                f.read_chunk()
-                f.read(2)
-                f.read_chunk()
+                for pos_x, pos_y, size_w, size_h in boxes:
+                    yield {"_type": "image",
+                           "src": img_url,
+                           "type": img_type,
+                           "pos": (pos_x, pos_y),
+                           "size": (size_w, size_h)}
             elif type in {b"L", b"P"}:
                 # "L" link
                 # "P" ??? (usually mailto link)
                 n = f.read_byte()
                 for j in range(n):
-                    f.read(10)
+                    pos_x = f.read_short()
+                    pos_y = f.read_medium()
+                    size_w = f.read_short()
+                    size_h = f.read_medium()
                 link_url = f.read_url()
-                f.read(2)
+                assert(f.read(2) == b"\x01t")
                 link_type = f.read_string()
                 if not link_url.startswith("b:"):
                     print("link =", link_url)
-            elif type in {b"I", b"N", b"w", b"W"}:
+            elif type in {b"C", b"I", b"N", b"S", b"w", b"W"}:
+                # other kinds of links?
                 n = f.read_byte()
                 for j in range(n):
-                    f.read(10)
+                    pos_x = f.read_short()
+                    pos_y = f.read_medium()
+                    size_w = f.read_short()
+                    size_h = f.read_medium()
                 f.read_chunk()
-                f.read(2)
-                f.read_chunk()
-            elif type == b"S":
-                n = f.read_byte()
-                for j in range(n):
-                    f.read(10)
-                f.read_chunk()
-                f.read(2)
+                assert(f.read(2) == b"\x01t")
                 f.read_chunk()
             else:
                 raise ValueError("in link section, unknown type %r" % type)
@@ -235,7 +239,6 @@ def parse_file(arg):
                 color_b = f.read_byte()
                 last_pos_x = pos_x = (last_pos_x + offset_x) & 0xFFFF
                 last_pos_y = pos_y = (last_pos_y + offset_y) & 0xFFFFFF
-
                 yield {"_type": "box",
                        "pos": (pos_x, pos_y),
                        "size": (size_w, size_h),
@@ -260,10 +263,10 @@ def parse_file(arg):
                     f.read(18)
                 last_pos_x = pos_x = (last_pos_x + offset_x) & 0xFFFF
                 last_pos_y = pos_y = (last_pos_y + offset_y) & 0xFFFFFF
-                #yield {"_type": "box",
-                #       "pos": (pos_x, pos_y),
-                #       "size": (size_w, size_h),
-                #       "fill": (127, 255, 0, 0)}
+                yield {"_type": "box",
+                       "pos": (pos_x, pos_y),
+                       "size": (size_w, size_h),
+                       "fill": (127, 255, 0, 0)}
             elif type == b"L":
                 f.read(9)
             elif type == b"M":
