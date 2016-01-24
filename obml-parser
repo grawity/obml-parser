@@ -244,23 +244,47 @@ def parse_file(arg):
                     raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
             elif type == b"T":
                 # text block
-                f.read(16)
-                color_r = 0
-                color_g = 0
-                color_b = 0
+                pos_x = pos_y = 0
+                color_a = color_r = color_g = color_b = 0
+                font = 0
+                offset_x = f.read_short()
+                offset_y = f.read_byte() << 16
+                offset_y |= f.read_short()
+                f.read(5)
+                f.read(6)
+                #pos_y = f.read_byte() << 16
+                #pos_y |= f.read_short()
+                #color_a = f.read_byte()
                 #color_r = f.read_byte()
                 #color_g = f.read_byte()
                 #color_b = f.read_byte()
-                pos_x = -1
-                pos_y = -1
+                #f.read(16)
+
+                print("=", "last X", last_T_pos_x, "this", offset_x, hex(offset_x))
+                if offset_x & 0xFF00:
+                    pos_x = 0 # XXX
+                else:
+                    pos_x = last_T_pos_x + offset_x
+
+                print("=", "last Y", last_T_pos_y, "this", offset_y, hex(offset_y))
+                if offset_y & 0xFFFF00:
+                    pos_x = 0 # XXX
+                else:
+                    pos_y = last_T_pos_y + offset_y
+
                 n = f.read_byte()
                 for j in range(n):
-                    f.read(5)
+                    print("text link", f.read(3))
                 text = f.read_string()
                 yield {"_type": "text",
                        "text": text,
-                       "color": (color_r, color_g, color_b),
+                       "font": font,
+                       "color": (color_a, color_r, color_g, color_b),
                        "pos": (pos_x, pos_y)}
+                last_T_pos_x = pos_x
+                last_T_pos_y = pos_y
+                #last_T_size_h = size_h
+                #last_T_size_w = size_w
             else:
                 raise ValueError("in content section, unknown type %r" % type)
 
