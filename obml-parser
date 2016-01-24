@@ -109,7 +109,13 @@ def parse_file(arg):
         exp_total_bytes = expected_size + 7
         exp_links_bytes = 0
 
-        f.read(8)
+        version = f.read_byte()
+        if version == 15:
+            f.read(10)
+        elif version == 16:
+            f.read(7)
+        else:
+            raise ValueError("bad version")
 
         page_title = f.read_string()
         f.read_chunk() # nil on v16, 'C\x10\x10...' on v15
@@ -133,6 +139,8 @@ def parse_file(arg):
                 f.read(1)
                 exp_links_bytes = f.read_short()
                 break
+            elif type == b"C":
+                f.read(23)
             else:
                 raise ValueError("in unknown section, unknown type %r" % type)
 
@@ -203,10 +211,10 @@ def parse_file(arg):
         content_start = f.fh.tell()
         content_end = exp_total_bytes
 
-        last_T_pos_x = 0
-        last_T_pos_y = 0
-        last_T_size_w = 0
-        last_T_size_h = 0
+        last_pos_x = 0
+        last_pos_y = 0
+        last_pos_x = 0
+        last_pos_y = 0
 
         while f.fh.tell() < content_end:
             print("--- content [%d] ---" % f.fh.tell())
@@ -217,35 +225,16 @@ def parse_file(arg):
                 # TODO: not sure if actual type or just part of preceding "I"-block
                 f.read_chunk()
             elif type == b"B":
-                # TODO: broken
-
                 offset_x = f.read_short()
                 offset_y = f.read_medium()
-
                 size_w = f.read_short()
                 size_h = f.read_medium()
-
                 color_a = f.read_byte()
                 color_r = f.read_byte()
                 color_g = f.read_byte()
                 color_b = f.read_byte()
-
-                _last_T_pos_x = last_T_pos_x
-                _last_T_pos_y = last_T_pos_y
-
-                if offset_x & 0xFF00:
-                    pos_x = last_T_pos_x + (0x10000 - offset_x)
-                    last_T_pos_x = 0
-                else:
-                    pos_x = last_T_pos_x + offset_x
-                    last_T_pos_x = pos_x
-
-                if offset_y & 0xFF0000:
-                    pos_y = last_T_pos_y + (0x1000000 - offset_y)
-                    last_T_pos_y = 0
-                else:
-                    pos_y = last_T_pos_y + offset_y
-                    last_T_pos_y = pos_y
+                last_pos_x = pos_x = (last_pos_x + offset_x) & 0xFFFF
+                last_pos_y = pos_y = (last_pos_y + offset_y) & 0xFFFFFF
 
                 yield {"_type": "box",
                        "pos": (pos_x, pos_y),
@@ -257,16 +246,23 @@ def parse_file(arg):
                 f.read_chunk()
                 f.read(5)
             elif type == b"I":
-                x = f.read_short()
-                y = f.read_medium()
-                print("=", x, y, "(0x%04x, 0x%06x)" % (x, y))
-                w = f.read_short()
-                h = f.read_medium()
-                print("=", w, h, "(0x%04x, 0x%06x)" % (w, h))
-                f.read(15)
+                if version == 16:
+                    offset_x = f.read_short()
+                    offset_y = f.read_medium()
+                    size_w = f.read_short()
+                    size_h = f.read_medium()
+                    f.read(15)
+                elif version == 15:
+                    offset_x = f.read_short()
+                    offset_y = f.read_medium()
+                    size_w = f.read_short()
+                    size_h = f.read_medium()
+                    f.read(18)
+                last_pos_x = pos_x = (last_pos_x + offset_x) & 0xFFFF
+                last_pos_y = pos_y = (last_pos_y + offset_y) & 0xFFFFFF
                 #yield {"_type": "box",
-                #       "pos": (x, y),
-                #       "size": (w, h),
+                #       "pos": (pos_x, pos_y),
+                #       "size": (size_w, size_h),
                 #       "fill": (127, 255, 0, 0)}
             elif type == b"L":
                 f.read(9)
@@ -285,56 +281,34 @@ def parse_file(arg):
                 if f.fh.tell() != files_end:
                     raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
             elif type == b"T":
-                # TODO: also broken
+                if version == 16:
+                    offset_x = f.read_short()
+                    offset_y = f.read_medium()
+                    size_w = f.read_short()
+                    size_h = f.read_medium()
+                    color_a = f.read_byte()
+                    color_r = f.read_byte()
+                    color_g = f.read_byte()
+                    color_b = f.read_byte()
+                    f.read(2); font = 4
+                    n = f.read_byte()
+                    for j in range(n):
+                        print("text link", f.read(1), f.read_chunk())
+                    text = f.read_string()
+                elif version == 15:
+                    offset_x = f.read_short()
+                    offset_y = f.read_medium()
+                    size_w = f.read_short()
+                    size_h = f.read_medium()
+                    color_a = f.read_byte()
+                    color_r = f.read_byte()
+                    color_g = f.read_byte()
+                    color_b = f.read_byte()
+                    font = f.read_byte()
+                    text = f.read_string()
 
-                offset_x = f.read_short()
-                offset_y = f.read_medium()
-                print("== coord 1: (%d, %d) / (0x%04x, 0x%06x)" % (offset_x, offset_y, offset_x, offset_y))
-
-                size_w = f.read_short()
-                size_h = f.read_medium()
-                print("== coord 2: (%d, %d) / (0x%04x, 0x%06x)" % (size_w, size_h, size_w, size_h))
-
-                color_a = f.read_byte()
-                color_r = f.read_byte()
-                color_g = f.read_byte()
-                color_b = f.read_byte()
-
-                f.read(2); font = 4
-
-                n = f.read_byte()
-                for j in range(n):
-                    print("text link", f.read(1), f.read_chunk())
-                text = f.read_string()
-
-                _last_T_pos_x = last_T_pos_x
-                _last_T_pos_y = last_T_pos_y
-
-                color_r, color_g, color_b = 0, 0, 0
-
-                if offset_x & 0xFF00:
-                    # this works...
-                    color_b = 255
-                    pos_x = 0
-                    last_T_pos_x = pos_x
-                else:
-                    pos_x = last_T_pos_x + offset_x
-                    last_T_pos_x = pos_x
-
-                if offset_y & 0xFF0000:
-                    # ...this doesn't
-                    color_r = 255
-                    pos_y = 0
-                    last_T_pos_y = 0
-                else:
-                    pos_y = last_T_pos_y + offset_y
-                    last_T_pos_y = pos_y
-
-                print("=", "last x", _last_T_pos_x, "this", offset_x, hex(offset_x), "->", pos_x, "(width %d)" % size_w)
-                print("=", "last Y", _last_T_pos_y, "this", offset_y, hex(offset_y), "->", pos_y, "(height %d)" % size_h)
-
-                last_T_size_w = size_w
-                last_T_size_h = size_h
+                last_pos_x = pos_x = (last_pos_x + offset_x) & 0xFFFF
+                last_pos_y = pos_y = (last_pos_y + offset_y) & 0xFFFFFF
 
                 yield {"_type": "text",
                        "text": text,
