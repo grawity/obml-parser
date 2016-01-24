@@ -184,16 +184,24 @@ def parse_file(arg):
                 # "L" link
                 # "P" ??? (usually mailto link)
                 n = f.read_byte()
+                boxes = []
                 for j in range(n):
                     pos_x = f.read_short()
                     pos_y = f.read_medium()
                     size_w = f.read_short()
                     size_h = f.read_medium()
+                    boxes.append((pos_x, pos_y, size_w, size_h))
                 link_url = f.read_url()
                 assert(f.read(2) == b"\x01t")
                 link_type = f.read_string()
                 if not link_url.startswith("b:"):
                     print("link =", link_url)
+                    for pos_x, pos_y, size_w, size_h in boxes:
+                        yield {"_type": "link",
+                               "href": link_url,
+                               "type": link_type,
+                               "pos": (pos_x, pos_y),
+                               "size": (size_w, size_h)}
             elif type in {b"C", b"I", b"N", b"S", b"w", b"W"}:
                 # other kinds of links?
                 n = f.read_byte()
@@ -215,8 +223,6 @@ def parse_file(arg):
         content_start = f.fh.tell()
         content_end = exp_total_bytes
 
-        last_pos_x = 0
-        last_pos_y = 0
         last_pos_x = 0
         last_pos_y = 0
 
@@ -284,35 +290,26 @@ def parse_file(arg):
                 if f.fh.tell() != files_end:
                     raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
             elif type == b"T":
+                offset_x = f.read_short()
+                offset_y = f.read_medium()
+                size_w = f.read_short()
+                size_h = f.read_medium()
+                color_a = f.read_byte()
+                color_r = f.read_byte()
+                color_g = f.read_byte()
+                color_b = f.read_byte()
                 if version == 16:
-                    offset_x = f.read_short()
-                    offset_y = f.read_medium()
-                    size_w = f.read_short()
-                    size_h = f.read_medium()
-                    color_a = f.read_byte()
-                    color_r = f.read_byte()
-                    color_g = f.read_byte()
-                    color_b = f.read_byte()
-                    f.read(2); font = 4
+                    f.read(1)
+                    font = 4 | (f.read_byte() & 1)
                     n = f.read_byte()
                     for j in range(n):
                         print("text link", f.read(1), f.read_chunk())
                     text = f.read_string()
                 elif version == 15:
-                    offset_x = f.read_short()
-                    offset_y = f.read_medium()
-                    size_w = f.read_short()
-                    size_h = f.read_medium()
-                    color_a = f.read_byte()
-                    color_r = f.read_byte()
-                    color_g = f.read_byte()
-                    color_b = f.read_byte()
                     font = f.read_byte()
                     text = f.read_string()
-
                 last_pos_x = pos_x = (last_pos_x + offset_x) & 0xFFFF
                 last_pos_y = pos_y = (last_pos_y + offset_y) & 0xFFFFFF
-
                 yield {"_type": "text",
                        "text": text,
                        "font": font,
@@ -415,7 +412,6 @@ def parse_file(arg):
                     img_url = f.read_url()
                     f.read(2)
                     img_type = f.read_string()
-                    print("image =", img_url)
                     for pos_x, pos_y, size_w, size_h in boxes:
                         yield {"_type": "image",
                                "src": img_url,
@@ -424,12 +420,22 @@ def parse_file(arg):
                                "size": (size_w, size_h)}
                 elif type == b"L":
                     n = f.read_byte()
+                    boxes = []
                     for j in range(n):
-                        f.read(10)
+                        pos_x = f.read_short()
+                        pos_y = f.read_medium()
+                        size_w = f.read_short()
+                        size_h = f.read_medium()
+                        boxes.append((pos_x, pos_y, size_w, size_h))
                     link_url = f.read_url()
                     f.read(2)
                     link_type = f.read_string()
-                    print("link =", link_url)
+                    for pos_x, pos_y, size_w, size_h in boxes:
+                        yield {"_type": "link",
+                               "href": link_url,
+                               "type": link_type,
+                               "pos": (pos_x, pos_y),
+                               "size": (size_w, size_h)}
                 elif type == b"S":
                     n = f.read_byte()
                     for j in range(n):
@@ -527,6 +533,8 @@ for arg in sys.argv[1:]:
         fout.write('<style>\n')
         fout.write('.box { z-index: -100; }\n')
         fout.write('.img { z-index: -50; }\n')
+        fout.write('.link { z-index: 100; }\n')
+        fout.write('.link:hover { outline: 1px solid blue; }\n')
         fout.write('</style>\n')
         for item in parse_file(arg):
             type = item["_type"]
@@ -553,10 +561,10 @@ for arg in sys.argv[1:]:
                     style += [
                         "width: %dpx" % item["size"][0],
                         "height: %dpx" % item["size"][1],
-                        "outline: 1px dotted %s" % rgba(item["color"]),
+                        #"outline: 1px dotted %s" % rgba(item["color"]),
                     ]
                 style = "; ".join(style)
-                fout.write('<div class="text" style="%s">' % style)
+                fout.write('<div class="item text" style="%s">' % style)
                 fout.write(item["text"])
                 fout.write('</div>\n')
             elif type == "image":
@@ -573,13 +581,12 @@ for arg in sys.argv[1:]:
                 ]
                 style = "; ".join(style)
                 if repeat:
-                    fout.write('<div class="img" style="%s"></div>\n' % style)
+                    fout.write('<div class="item img" style="%s"></div>\n' % style)
                 else:
-                    fout.write('<img src="%s" style="%s">\n' % (item["src"], style))
+                    fout.write('<img class="item img" src="%s" style="%s">\n' % (item["src"], style))
             elif type == "box":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
-                repeat = True
                 style = [
                     "background-color: %s" % rgba(item["fill"]),
                     "position: absolute",
@@ -589,4 +596,21 @@ for arg in sys.argv[1:]:
                     "height: %dpx" % item_h,
                 ]
                 style = "; ".join(style)
-                fout.write('<div class="box" style="%s"></div>\n' % style)
+                fout.write('<div class="item box" style="%s"></div>\n' % style)
+            elif type == "link":
+                item_x, item_y = item["pos"]
+                item_w, item_h = item["size"]
+                style = [
+                    "position: absolute",
+                    "left: %dpx" % item_x,
+                    "top: %dpx" % item_y,
+                    "width: %dpx" % item_w,
+                    "height: %dpx" % item_h,
+                    "display: block",
+                ]
+                style = "; ".join(style)
+                fout.write('<a class="item link" href="%s" style="%s"></a>\n' % (item["href"], style))
+            elif type == "file":
+                # look up mimetype from last 'i' item
+                # look up <img> tag from last "image"
+                pass
