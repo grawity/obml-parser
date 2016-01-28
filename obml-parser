@@ -17,6 +17,8 @@ class Parser():
         self.path = path
         self.fh = open(path, 'rb')
         self.url_base = "\0"
+        self.last_x = 0
+        self.last_y = 0
 
     def debug(self, typ, data):
         if os.environ.get("DEBUG"):
@@ -24,6 +26,8 @@ class Parser():
             c_off = "\033[m" if sys.stdout.isatty() else ""
             print(c_on, "#", typ, repr(data), c_off)
         return data
+
+    # primitives
 
     def read(self, length):
         buf = self.fh.read(length)
@@ -66,6 +70,8 @@ class Parser():
 
         return self.debug("chunk[%d]" % length, buf)
 
+    # other data types
+
     def read_string(self):
         buf = self.read_chunk()
         buf = buf.decode('utf-8')
@@ -78,6 +84,25 @@ class Parser():
                 base = self.url_base
             buf = base + buf[1:]
         return self.debug("-> url[%d]" % len(buf), buf)
+
+    def read_color(self):
+        a = self.read_byte()
+        r = self.read_byte()
+        g = self.read_byte()
+        b = self.read_byte()
+        return self.debug("-> color[argb]", (a, r, g, b))
+
+    def read_coords(self, rel_to_abs=False):
+        x = self.read_short()
+        y = self.read_medium()
+        if rel_to_abs:
+            self.last_x = x = (self.last_x + x) & 0xFFFF
+            self.last_y = y = (self.last_y + y) & 0xFFFFFF
+        else:
+            # in v15+, all positions are relative and never depend on
+            # earlier absolute coordinates (which are only used for sizes)
+            pass
+        return self.debug("-> coords[%s]" % ("rel" if rel_to_abs else "abs"), (x, y))
 
 def infinity(start=0):
     i = start
@@ -166,50 +191,44 @@ def parse_file(arg):
                 n = f.read_byte()
                 boxes = []
                 for j in range(n):
-                    pos_x = f.read_short()
-                    pos_y = f.read_medium()
-                    size_w = f.read_short()
-                    size_h = f.read_medium()
-                    boxes.append((pos_x, pos_y, size_w, size_h))
+                    pos = f.read_coords()
+                    size = f.read_coords()
+                    boxes.append((pos, size))
                 img_url = f.read_url()
                 assert(f.read(2) == b"\x01t")
                 img_type = f.read_string()
-                for pos_x, pos_y, size_w, size_h in boxes:
+                for pos, size in boxes:
                     yield {"_type": "image",
                            "src": img_url,
                            "type": img_type,
-                           "pos": (pos_x, pos_y),
-                           "size": (size_w, size_h)}
+                           "pos": pos,
+                           "size": size}
             elif type in {b"L", b"P"}:
                 # "L" link
                 # "P" ??? (usually mailto link)
                 n = f.read_byte()
                 boxes = []
                 for j in range(n):
-                    pos_x = f.read_short()
-                    pos_y = f.read_medium()
-                    size_w = f.read_short()
-                    size_h = f.read_medium()
-                    boxes.append((pos_x, pos_y, size_w, size_h))
+                    pos = f.read_coords()
+                    size = f.read_coords()
+                    boxes.append((pos, size))
                 link_url = f.read_url()
                 assert(f.read(2) == b"\x01t")
                 link_type = f.read_string()
                 if not link_url.startswith("b:"):
                     print("link =", link_url)
-                    for pos_x, pos_y, size_w, size_h in boxes:
+                    for pos, size in boxes:
                         yield {"_type": "link",
                                "href": link_url,
                                "type": link_type,
-                               "pos": (pos_x, pos_y),
-                               "size": (size_w, size_h)}
+                               "pos": pos,
+                               "size": size}
             elif type in {b"C", b"I", b"N", b"S", b"w", b"W"}:
                 # other kinds of links?
                 n = f.read_byte()
                 for j in range(n):
-                    pos_x = f.read_short()
-                    pos_y = f.read_medium()
-                    size_w = f.read_short()
-                    size_h = f.read_medium()
+                    pos = f.read_coords()
+                    size = f.read_coords()
                 f.read_chunk()
                 assert(f.read(2) == b"\x01t")
                 f.read_chunk()
@@ -223,9 +242,6 @@ def parse_file(arg):
         content_start = f.fh.tell()
         content_end = exp_total_bytes
 
-        last_pos_x = 0
-        last_pos_y = 0
-
         while f.fh.tell() < content_end:
             print("--- content [%d] ---" % f.fh.tell())
             type = f.read(1)
@@ -235,20 +251,13 @@ def parse_file(arg):
                 # TODO: not sure if actual type or just part of preceding "I"-block
                 f.read_chunk()
             elif type == b"B":
-                offset_x = f.read_short()
-                offset_y = f.read_medium()
-                size_w = f.read_short()
-                size_h = f.read_medium()
-                color_a = f.read_byte()
-                color_r = f.read_byte()
-                color_g = f.read_byte()
-                color_b = f.read_byte()
-                last_pos_x = pos_x = (last_pos_x + offset_x) & 0xFFFF
-                last_pos_y = pos_y = (last_pos_y + offset_y) & 0xFFFFFF
+                pos = f.read_coords(rel_to_abs=True)
+                size = f.read_coords()
+                color = f.read_color()
                 yield {"_type": "box",
-                       "pos": (pos_x, pos_y),
-                       "size": (size_w, size_h),
-                       "fill": (color_a, color_r, color_g, color_b)}
+                       "pos": pos,
+                       "size": size,
+                       "fill": color}
             elif type == b"F":
                 f.read(16)
                 f.read_chunk()
@@ -256,22 +265,16 @@ def parse_file(arg):
                 f.read(5)
             elif type == b"I":
                 if version == 16:
-                    offset_x = f.read_short()
-                    offset_y = f.read_medium()
-                    size_w = f.read_short()
-                    size_h = f.read_medium()
+                    pos = f.read_coords(rel_to_abs=True)
+                    size = f.read_coords()
                     f.read(15)
                 elif version == 15:
-                    offset_x = f.read_short()
-                    offset_y = f.read_medium()
-                    size_w = f.read_short()
-                    size_h = f.read_medium()
+                    pos = f.read_coords(rel_to_abs=True)
+                    size = f.read_coords()
                     f.read(18)
-                last_pos_x = pos_x = (last_pos_x + offset_x) & 0xFFFF
-                last_pos_y = pos_y = (last_pos_y + offset_y) & 0xFFFFFF
                 yield {"_type": "box",
-                       "pos": (pos_x, pos_y),
-                       "size": (size_w, size_h),
+                       "pos": pos,
+                       "size": size,
                        "fill": (127, 255, 0, 0)}
             elif type == b"L":
                 f.read(9)
@@ -290,14 +293,9 @@ def parse_file(arg):
                 if f.fh.tell() != files_end:
                     raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
             elif type == b"T":
-                offset_x = f.read_short()
-                offset_y = f.read_medium()
-                size_w = f.read_short()
-                size_h = f.read_medium()
-                color_a = f.read_byte()
-                color_r = f.read_byte()
-                color_g = f.read_byte()
-                color_b = f.read_byte()
+                pos = f.read_coords(rel_to_abs=True)
+                size = f.read_coords()
+                color = f.read_color()
                 if version == 16:
                     f.read(1)
                     font = 4 | (f.read_byte() & 1)
@@ -308,14 +306,12 @@ def parse_file(arg):
                 elif version == 15:
                     font = f.read_byte()
                     text = f.read_string()
-                last_pos_x = pos_x = (last_pos_x + offset_x) & 0xFFFF
-                last_pos_y = pos_y = (last_pos_y + offset_y) & 0xFFFFFF
                 yield {"_type": "text",
                        "text": text,
                        "font": font,
-                       "color": (color_a, color_r, color_g, color_b),
-                       "pos": (pos_x, pos_y),
-                       "size": (size_w, size_h)}
+                       "color": color,
+                       "pos": pos,
+                       "size": size}
             else:
                 raise ValueError("in content section, unknown type %r" % type)
 
@@ -404,38 +400,34 @@ def parse_file(arg):
                     n = f.read_byte()
                     boxes = []
                     for j in range(n):
-                        pos_x = f.read_short()
-                        pos_y = f.read_medium()
-                        size_w = f.read_short()
-                        size_h = f.read_medium()
-                        boxes.append((pos_x, pos_y, size_w, size_h))
+                        pos = f.read_coords()
+                        size = f.read_coords()
+                        boxes.append((pos, size))
                     img_url = f.read_url()
                     f.read(2)
                     img_type = f.read_string()
-                    for pos_x, pos_y, size_w, size_h in boxes:
+                    for pos, size in boxes:
                         yield {"_type": "image",
                                "src": img_url,
                                "type": img_type,
-                               "pos": (pos_x, pos_y),
-                               "size": (size_w, size_h)}
+                               "pos": pos,
+                               "size": size}
                 elif type == b"L":
                     n = f.read_byte()
                     boxes = []
                     for j in range(n):
-                        pos_x = f.read_short()
-                        pos_y = f.read_medium()
-                        size_w = f.read_short()
-                        size_h = f.read_medium()
-                        boxes.append((pos_x, pos_y, size_w, size_h))
+                        pos = f.read_coords()
+                        size = f.read_coords()
+                        boxes.append((pos, size))
                     link_url = f.read_url()
                     f.read(2)
                     link_type = f.read_string()
-                    for pos_x, pos_y, size_w, size_h in boxes:
+                    for pos, size in boxes:
                         yield {"_type": "link",
                                "href": link_url,
                                "type": link_type,
-                               "pos": (pos_x, pos_y),
-                               "size": (size_w, size_h)}
+                               "pos": pos,
+                               "size": size}
                 elif type == b"S":
                     n = f.read_byte()
                     for j in range(n):
@@ -459,18 +451,13 @@ def parse_file(arg):
             if None:
                 pass
             elif type == b"B":
-                pos_x = f.read_short()
-                pos_y = f.read_medium()
-                size_w = f.read_short()
-                size_h = f.read_medium()
-                color_a = f.read_byte()
-                color_r = f.read_byte()
-                color_g = f.read_byte()
-                color_b = f.read_byte()
+                pos = f.read_coords()
+                size = f.read_coords()
+                color = f.read_color()
                 yield {"_type": "box",
-                       "pos": (pos_x, pos_y),
-                       "size": (size_w, size_h),
-                       "fill": (color_a, color_r, color_g, color_b)}
+                       "pos": pos,
+                       "size": size,
+                       "fill": color}
             elif type == b"F":
                 f.read(16)
                 f.read_chunk()
@@ -495,22 +482,17 @@ def parse_file(arg):
                 if f.fh.tell() != files_end:
                     raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
             elif type == b"T":
-                pos_x = f.read_short()
-                pos_y = f.read_medium()
-                size_w = f.read_short()
-                size_h = f.read_medium()
-                color_a = f.read_byte()
-                color_r = f.read_byte()
-                color_g = f.read_byte()
-                color_b = f.read_byte()
+                pos = f.read_coords()
+                size = f.read_coords()
+                color = f.read_color()
                 font = f.read_byte()
                 text = f.read_string()
                 yield {"_type": "text",
                        "text": text,
                        "font": font,
-                       "color": (color_a, color_r, color_g, color_b),
-                       "pos": (pos_x, pos_y),
-                       "size": (size_w, size_h)}
+                       "color": color,
+                       "pos": pos,
+                       "size": size}
             else:
                 raise ValueError("in content section, unknown type %r" % type)
 
