@@ -223,7 +223,7 @@ def parse_file(arg):
             for j in range(n):
                 f.read_string()
                 f.read_string()
-        elif type in {b"i", b"L", b"P"}:
+        elif type in {b"i", b"L", b"P", b"w", b"W"}:
             # shared 'region' format
             n = f.read_byte()
             boxes = []
@@ -257,7 +257,7 @@ def parse_file(arg):
                                "type": link_type,
                                "pos": pos,
                                "size": size}
-        elif type in {b"C", b"I", b"N", b"S", b"w", b"W"} and version >= 15:
+        elif type in {b"C", b"I", b"N", b"S"} and version >= 15:
             # shared 'region' format
             n = f.read_byte()
             for j in range(n):
@@ -277,7 +277,7 @@ def parse_file(arg):
             f.read_blob()
         elif type == b"C" and version == 12:
             f.read(24)
-        elif type in {b"I", b"S", b"W"} and version == 12:
+        elif type in {b"I", b"S"} and version == 12:
             # shared 'region' format
             n = f.read_byte()
             for j in range(n):
