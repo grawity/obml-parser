@@ -220,9 +220,13 @@ def parse_file(arg):
             # <option> selections
             f.read(1)
             n = f.read_byte()
+            options = []
             for j in range(n):
-                f.read_string()
-                f.read_string()
+                opt_val = f.read_string()
+                opt_text = f.read_string()
+                options.append((opt_val, opt_text))
+            yield {"_type": "option_list",
+                   "data": options}
         elif type in {b"i", b"L", b"P", b"w", b"W"}:
             # shared 'region' format
             n = f.read_byte()
@@ -340,7 +344,7 @@ def parse_file(arg):
                 f.read(5)
             else:
                 f.read(3)
-            if field_type == b"c":
+            if field_type in {b"c", b"r"}:
                 # hack
                 pos = (pos[0] - 8, pos[1] - 8)
                 size = (size[0] + 8, size[1] + 8)
@@ -348,6 +352,8 @@ def parse_file(arg):
                    "kind": {
                        b"a": "textarea",
                        b"c": "checkbox",
+                       b"r": "radio",
+                       b"s": "select",
                        b"x": "text",
                    }.get(field_type),
                    "value": field_value,
@@ -445,6 +451,9 @@ for arg in sys.argv[1:]:
     with open("%s.html" % arg, "w") as fout:
         id_alloc = iter(infinity())
         imgboxes = {}
+        option_lists = {}
+        n_option_lists = iter(infinity())
+        n_select_fields = iter(infinity())
 
         fout.write('<!DOCTYPE html>\n')
         fout.write('<meta charset="utf-8">\n')
@@ -522,6 +531,9 @@ for arg in sys.argv[1:]:
                     imgboxes.setdefault(item["blob"], []).append(box_id)
                 else:
                     fout.write('<div class="item box" style="%s"></div>\n' % style)
+            elif type == "option_list":
+                list_id = next(n_option_lists)
+                option_lists[list_id] = item["data"]
             elif type == "input":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
@@ -534,11 +546,17 @@ for arg in sys.argv[1:]:
                 ]
                 style = "; ".join(style)
                 if item["kind"] == "textarea":
-                    fout.write('<textarea class="item form" style="%s">%s</textarea>\n' % (style, item["value"]))
+                    fout.write('<textarea class="item form field" style="%s">%s</textarea>\n' % (style, item["value"]))
                 elif item["kind"] == "text":
-                    fout.write('<input class="item form" style="%s" type="text" value="%s">\n' % (style, item["value"]))
-                elif item["kind"] == "checkbox":
-                    fout.write('<input class="item form" style="%s" type="checkbox" value="%s">\n' % (style, item["value"]))
+                    fout.write('<input class="item form field" style="%s" type="text" value="%s">\n' % (style, item["value"]))
+                elif item["kind"] in {"checkbox", "radio"}:
+                    fout.write('<input class="item form" style="%s" type="%s" value="%s">\n' % (style, item["kind"], item["value"]))
+                elif item["kind"] == "select":
+                    list_id = next(n_select_fields)
+                    fout.write('<select class="item field" style="%s">\n' % style)
+                    for opt_id, opt_text in option_lists[list_id]:
+                        fout.write('<option>%s</option>\n' % opt_text)
+                    fout.write('</select>\n')
             elif type == "link":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
