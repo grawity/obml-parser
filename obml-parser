@@ -370,8 +370,11 @@ def parse_file(arg):
                         f.read_string()
                 elif type == b"i":
                     n = f.read_byte()
+                    boxes = []
                     for j in range(n):
-                        f.read(10)
+                        pos = f.read_coords()
+                        size = f.read_coords()
+                        boxes.append((pos, size))
                     img_type = f.read_string()
                     img_url = f.read_url()
                     print("image =", img_url)
@@ -380,14 +383,20 @@ def parse_file(arg):
                 elif type == b"L":
                     n = f.read_byte()
                     f.read(2)
+                    boxes = []
                     for j in range(n):
-                        f.read(10)
+                        pos = f.read_coords()
+                        size = f.read_coords()
+                        boxes.append((pos, size))
                     link_url = f.read_url()
                     print("link =", link_url)
                 elif type in {b"I", b"S", b"W"}:
                     n = f.read_byte()
+                    boxes = []
                     for j in range(n):
-                        f.read(10)
+                        pos = f.read_coords()
+                        size = f.read_coords()
+                        boxes.append((pos, size))
                     f.read_chunk()
                     f.read_chunk()
                 else:
@@ -429,8 +438,11 @@ def parse_file(arg):
                                "size": size}
                 elif type == b"S":
                     n = f.read_byte()
+                    boxes = []
                     for j in range(n):
-                        f.read(10)
+                        pos = f.read_coords()
+                        size = f.read_coords()
+                        boxes.append((pos, size))
                     f.read_chunk()
                     f.read(2)
                     f.read_chunk()
