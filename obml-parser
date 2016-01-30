@@ -175,7 +175,8 @@ def parse_file(arg):
     if version >= 15:
         f.read(6)
     else:
-        f.read(5)
+        f.read_short()
+        f.read_medium()
 
     # metadata section
 
