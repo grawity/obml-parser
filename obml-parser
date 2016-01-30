@@ -160,7 +160,9 @@ def parse_file(arg):
 
     page_size = f.read_coords()
     if version == 16:
-        assert(f.read_short() == 0xFFFF)
+        assert(f.read(2) == b'\xff\xff')
+    else:
+        assert(f.read(5) == b'S\x00\x00\xff\xff')
     page_title = f.read_string()
     f.read_blob() # 'C\x10\x10...' on v15, nil elsewhere
     f.url_base = f.read_string()
