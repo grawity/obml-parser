@@ -244,11 +244,13 @@ def parse_file(arg):
                 link_url = f.read_url()
             if type == b"i":
                 for pos, size in boxes:
-                    yield {"_type": "image_link",
-                           "src": link_url,
-                           "type": link_type,
-                           "pos": pos,
-                           "size": size}
+                    if size[0] > 16 and size[1] > 16:
+                        yield {"_type": "link",
+                               "kind": "image",
+                               "href": link_url,
+                               "type": link_type,
+                               "pos": pos,
+                               "size": size}
             else:
                 if not link_url.startswith("b:"):
                     for pos, size in boxes:
