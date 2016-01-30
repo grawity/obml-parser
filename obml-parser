@@ -137,29 +137,37 @@ def parse_file(arg):
         assert(expected_size == 0x02d355)
         expected_size = f.read_medium()
         version = f.read_byte()
-
         exp_total_bytes = expected_size + 7
-        exp_links_bytes = 0
+    else:
+        exp_total_bytes = expected_size + 3
 
-        if version == 15:
-            f.read(10)
-        elif version == 16:
-            f.read(7)
-        else:
-            raise ValueError("bad version")
+    exp_links_bytes = 0
 
-        page_title = f.read_string()
-        f.read_chunk() # nil on v16, 'C\x10\x10...' on v15
-        f.url_base = f.read_string()
-        page_url = f.read_url()
-        print("title =", page_title)
-        print("url =", page_url)
-        yield {"_type": "head",
-               "title": page_title,
-               "url": page_url}
+    if version == 16:
+        page_size = f.read_coords()
+        assert(f.read_short() == 0xFFFF)
+    elif version == 15:
+        f.read(10)
+    elif version in {12, 13}:
+        f.read(10)
+    else:
+        raise ValueError("bad version")
 
+    page_title = f.read_string()
+    f.read_chunk() # 'C\x10\x10...' on v15, nil elsewhere
+    f.url_base = f.read_string()
+    page_url = f.read_url()
+    yield {"_type": "head",
+           "title": page_title,
+           "url": page_url}
+
+    if version >= 15:
         f.read(6)
+    else:
+        f.read(5)
 
+
+    if version >= 15:
         for i in infinity(start=1):
             type = f.read(1)
             if type == b"M":
@@ -325,21 +333,6 @@ def parse_file(arg):
             raise ValueError("content section ended at %d, expected %d" % (f.fh.tell(), content_end))
 
     elif version == 12 or version == 13:
-        exp_total_bytes = expected_size + 3
-        exp_links_bytes = 0
-
-        f.read(10)
-
-        page_title = f.read_string()
-        f.read_chunk() # nil
-        f.url_base = f.read_string()
-        page_url = f.read_url()
-        yield {"_type": "head",
-               "title": page_title,
-               "url": page_url}
-
-        f.read(5)
-
         for i in infinity(start=1):
             print("--- section 1 item %d ---" % i)
             type = f.read(1)
