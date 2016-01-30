@@ -153,7 +153,9 @@ Types:
 
  - `a` is a multi-line input box (textarea)
  - `c` is a checkbox
+ - `r` is a radio button
  - `x` is a single-line input box
+ - `s` is a select drop-down
 
 ### Content: 'I' chunks
 
