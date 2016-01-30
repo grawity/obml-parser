@@ -60,15 +60,15 @@ Following is the "metadata" section and the "content" section, both composed of 
 
 This section consists of several chunks. Each chunk starts with `type: char` (an ASCII letter), followed by variable amount of fields.
 
-### 'C' chunks
+### Metadata: 'C' chunks
 
 In v≥15, always contain `byte[23]` of unknown data.
 
-### 'M' chunks
+### Metadata: 'M' chunks
 
 Always contain `byte[2]`, `blob` of unknown data. It seems the first byte is a sub-type. One subtype seems to contain a favicon as PNG, one contains an unknown blob of repeating `...\xff\x03\x00\x02\x00\x00...` junk.
 
-### 'S' chunks
+### Metadata: 'S' chunks
 
 Appear to contain `links_size: medium` followed by a "links" sub-section of that size.
 
@@ -76,11 +76,11 @@ Appear to contain `links_size: medium` followed by a "links" sub-section of that
 
 This section consists of chunks and appears to be a sub-section of the preceding 'S' chunk.
 
-### '\x00' chunks
+### Links: '\x00' chunks
 
 Always contain `unknown: byte` and `count: byte`, followed by that many `(id: string, label: string)` pairs. Each of these chunks seems to store the `<option>` choices for a HTML `<select>` widget.
 
-### Region chunks
+### Links: all region chunks
 
 Most other chunks in this sub-section define 'regions' and share the same data format.
 
@@ -94,19 +94,19 @@ In v12 the format is `box_count: byte`, followed by that many `(pos: coords, siz
 
 `link_target` can be an _url_, a _string_, or an unknown blob.
 
-### 'I', 'N', 'S', 'w', 'W' chunks
+### Links: 'I', 'N', 'S', 'w', 'W' chunks
 
 Unknown region types. These follow the "region chunk" format.
 
-### 'C' chunks
+### Links: 'C' chunks
 
 In v≥15, an unknown region type. In v12, `unknown: byte[24]`; likely to also be a region type but I haven't checked yet.
 
-### 'i' chunks
+### Links: 'i' chunks
 
 Image region (`link_target: url` links to the original image). Note that this doesn't actually render an image, only define a link region for the original URL. The image itself is drawn by the content section.
 
-### 'L' chunks
+### Links: 'L' chunks
 
 Link region (`link_target: url` is the link target). Note that this isn't directly associated with link text in any way; it merely defines the 'active' rectangle overlayed on top of the text.
 
@@ -114,13 +114,13 @@ URLs starting with `b:` seem to be JavaScript links.
 
 Note that v12 has a different format for 'L' chunks, different from the normal "region" format: `box_count: byte`, followed by `unknown: byte[2]`, followed by *box_count* × `(pos: coords, size: coords)` pairs, followed by `link_target: url`.
 
-### 'P' chunks
+### Links: 'P' chunks
 
 Link region similar to 'L' but containing a "platform" link (usually `mailto:`).
 
 ## Content section
 
-### 'B' chunks
+### Content: 'B' chunks
 
 Define a filled rectangle (a "box"); used to draw background colors, borders, other lines (including even link underlines).
 
@@ -128,7 +128,7 @@ In v≥15, contain `pos: coords[rel]`, `size: coords`, `fill: color`.
 
 In v≤13, contain `pos: coords`, `size: coords`, `fill: color`.
 
-### 'F' chunks
+### Content: 'F' chunks
 
 Unknown.
 
@@ -136,7 +136,7 @@ In v≥15, contain `byte[16]`, `blob`, `blob`, `byte[5]`.
 
 In v≤13, contain `byte[16]`, `blob`, `blob`, `byte[3]`.
 
-### 'I' chunks
+### Content: 'I' chunks
 
 Image.
 
@@ -148,21 +148,21 @@ In v≤13, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `unknown: 
 
 *fill* is the image's average color, for use as placeholder when images are disabled/loading.
 
-### 'L' chunks
+### Content: 'L' chunks
 
 Unknown. Contain `byte[9]` with unknown data.
 
-### 'M' chunks
+### Content: 'M' chunks
 
 Unknown. Contain `byte[2]`, `blob` with unknown data.
 
-### 'o' chunks
+### Content: 'o' chunks
 
 Not sure if an actual chunk, or just part of the preceding 'I'-chunk.
 
 Contain `blob` with unknown data.
 
-### 'S' chunks
+### Content: 'S' chunks
 
 Embedded images.
 
@@ -170,7 +170,7 @@ Contain `data_size: medium`, followed by some number of `file_data: blob`. (The 
 
 Each 𝒏-th blob contains an image (PNG or JPEG) to be drawn in the corresponding 𝒏-th 'I' content chunk.
 
-### 'T' chunks
+### Content: 'T' chunks
 
 Text.
 
