@@ -324,13 +324,36 @@ def parse_file(arg):
                    "size": size,
                    "fill": color}
         elif type == b"F":
-            f.read(16)
-            f.read_blob()
-            f.read_blob()
+            if version >= 15:
+                pos = f.read_coords(rel_to_abs=True)
+                size = f.read_coords()
+                color = f.read_color()
+            else:
+                pos = f.read_coords()
+                size = f.read_coords()
+                color = f.read_color()
+            field_type = f.read(1)
+            f.read(1)
+            field_id = f.read_string()
+            field_value = f.read_string()
             if version >= 15:
                 f.read(5)
             else:
                 f.read(3)
+            if field_type == b"c":
+                # hack
+                pos = (pos[0] - 8, pos[1] - 8)
+                size = (size[0] + 8, size[1] + 8)
+            yield {"_type": "input",
+                   "kind": {
+                       b"a": "textarea",
+                       b"c": "checkbox",
+                       b"x": "text",
+                   }.get(field_type),
+                   "value": field_value,
+                   "pos": pos,
+                   "size": size,
+                   "color": color}
         elif type == b"I":
             addr = 0
             if version == 16:
@@ -447,10 +470,15 @@ for arg in sys.argv[1:]:
                    '.item {\n'
                    '  position: absolute;\n'
                    '}\n'
-                   '.text {\n'
+                   '.text, .field {\n'
                    '  font-family: sans-serif;\n'
+                   '  font-size: 11px;\n'
                    '  line-height: 1.1;\n'
                    '  white-space: pre;\n'
+                   '}\n'
+                   '.form {\n'
+                   '  border: none;\n'
+                   '  padding: none;\n'
                    '}\n'
                    '</style>\n')
         for item in parse_file(arg):
@@ -494,6 +522,23 @@ for arg in sys.argv[1:]:
                     imgboxes.setdefault(item["blob"], []).append(box_id)
                 else:
                     fout.write('<div class="item box" style="%s"></div>\n' % style)
+            elif type == "input":
+                item_x, item_y = item["pos"]
+                item_w, item_h = item["size"]
+                style = [
+                    "color: %s" % rgba(item["color"]),
+                    "left: %dpx" % item_x,
+                    "top: %dpx" % item_y,
+                    "width: %dpx" % item_w,
+                    "height: %dpx" % item_h,
+                ]
+                style = "; ".join(style)
+                if item["kind"] == "textarea":
+                    fout.write('<textarea class="item form" style="%s">%s</textarea>\n' % (style, item["value"]))
+                elif item["kind"] == "text":
+                    fout.write('<input class="item form" style="%s" type="text" value="%s">\n' % (style, item["value"]))
+                elif item["kind"] == "checkbox":
+                    fout.write('<input class="item form" style="%s" type="checkbox" value="%s">\n' % (style, item["value"]))
             elif type == "link":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
