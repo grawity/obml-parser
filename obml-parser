@@ -68,7 +68,7 @@ class Parser():
         data_hi, data_lo = struct.unpack('>BH', buf)
         return self.debug("medium", (data_hi << 16) | data_lo)
 
-    def read_chunk(self):
+    def read_blob(self):
         length = self.read_short()
         buf = self.fh.read(length)
         if len(buf) < length:
@@ -79,7 +79,7 @@ class Parser():
     # other data types
 
     def read_string(self):
-        buf = self.read_chunk()
+        buf = self.read_blob()
         buf = buf.decode('utf-8')
         return self.debug("-> str[%d]" % len(buf), buf)
 
@@ -164,7 +164,7 @@ def parse_file(arg):
         raise ValueError("bad version")
 
     page_title = f.read_string()
-    f.read_chunk() # 'C\x10\x10...' on v15, nil elsewhere
+    f.read_blob() # 'C\x10\x10...' on v15, nil elsewhere
     f.url_base = f.read_string()
     page_url = f.read_url()
     yield {"_type": "head",
@@ -190,7 +190,7 @@ def parse_file(arg):
                 raise ValueError("unhandled metadata chunk %r/v%r" % (type, version))
         elif type == b"M":
             f.read(2)
-            f.read_chunk()
+            f.read_blob()
         elif type == b"S":
             exp_links_bytes = f.read_medium()
             break
@@ -275,18 +275,18 @@ def parse_file(arg):
             for j in range(n):
                 pos = f.read_coords()
                 size = f.read_coords()
-            f.read_chunk()
+            f.read_blob()
             assert(f.read(2) == b"\x01t")
-            f.read_chunk()
+            f.read_blob()
         elif type in {b"S"} and version == 13:
             # shared 'region' format
             n = f.read_byte()
             for j in range(n):
                 pos = f.read_coords()
                 size = f.read_coords()
-            f.read_chunk()
+            f.read_blob()
             f.read(2)
-            f.read_chunk()
+            f.read_blob()
         elif type == b"C" and version == 12:
             f.read(24)
         elif type in {b"I", b"S", b"W"} and version == 12:
@@ -295,8 +295,8 @@ def parse_file(arg):
             for j in range(n):
                 pos = f.read_coords()
                 size = f.read_coords()
-            f.read_chunk()
-            f.read_chunk()
+            f.read_blob()
+            f.read_blob()
         else:
             raise ValueError("unknown link chunk %r/v%r" % (type, version))
 
@@ -317,7 +317,7 @@ def parse_file(arg):
         elif type == b"o":
             if version >= 15:
                 # TODO: not sure if actual type or just part of preceding "I"-block
-                f.read_chunk()
+                f.read_blob()
             else:
                 raise ValueError("unhandled content chunk %r/v%r" % (type, version))
         elif type == b"B":
@@ -335,8 +335,8 @@ def parse_file(arg):
                    "fill": color}
         elif type == b"F":
             f.read(16)
-            f.read_chunk()
-            f.read_chunk()
+            f.read_blob()
+            f.read_blob()
             if version >= 15:
                 f.read(5)
             else:
@@ -365,13 +365,13 @@ def parse_file(arg):
             f.read(9)
         elif type == b"M":
             f.read(2)
-            f.read_chunk()
+            f.read_blob()
         elif type == b"S":
             exp_files_bytes = f.read_medium()
             files_start = f.fh.tell()
             files_end = f.fh.tell() + exp_files_bytes
             while f.fh.tell() < files_end:
-                buf = f.read_chunk()
+                buf = f.read_blob()
                 yield {"_type": "file",
                        "data": buf[:16]+b"..."}
             print("files started at %d, ends at %d" % (files_start, f.fh.tell()))
@@ -386,7 +386,7 @@ def parse_file(arg):
                 font = 4 | (f.read_byte() & 1)
                 n = f.read_byte()
                 for j in range(n):
-                    print("text link", f.read(1), f.read_chunk())
+                    print("text link", f.read(1), f.read_blob())
                 text = f.read_string()
             elif version == 15:
                 pos = f.read_coords(rel_to_abs=True)
