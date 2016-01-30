@@ -122,8 +122,10 @@ def strhex(buf):
 
 def rgba(argb_tuple):
     a, r, g, b = argb_tuple
-    a = (a / 255) if a > 0 else 1.0
-    return "rgba(%d, %d, %d, %.6f)" % (r, g, b, a)
+    if a == 0 or a == 255:
+        return "rgb(%d, %d, %d)" % (r, g, b)
+    else:
+        return "rgba(%d, %d, %d, %.3f)" % (r, g, b, a/255)
 
 def data_url(buf):
     if buf.startswith(b"\x89PNG\r\n"):
