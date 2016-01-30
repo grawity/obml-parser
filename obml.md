@@ -45,7 +45,10 @@ For v≥15, *file_size* is always 0x02d355 and *version* is always 16; they're f
 
 Note that *file_size* only includes the bytes following it. It doesn't include the field's own size, nor the preceding fields.
 
-Following is an unknown header (7 bytes for v16, 10 bytes for other versions).
+Following:
+
+  * In v16, `page_size: coords`, `unknown: short` (always 0xFFFF)
+  * In v≤15, `unknown: byte[10]`
 
 Following are `page_title: string`, `unknown: blob`, `page_url_base: string`, and `page_url: url`. The unknown blob seems to always start with `C\x10\x10...` on v15, empty otherwise.
 
