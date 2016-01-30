@@ -113,8 +113,6 @@ Link region (`link_target: url` is the link target). Note that this isn't direct
 
 URLs starting with `b:` seem to be JavaScript links.
 
-Note that v12 has a different format for 'L' chunks, different from the normal "region" format: `box_count: byte`, followed by `unknown: byte[2]`, followed by *box_count* × `(pos: coords, size: coords)` pairs, followed by `link_target: url`.
-
 ### Links: 'P' chunks
 
 Link region similar to 'L' but containing a "platform" link (usually `mailto:`).
