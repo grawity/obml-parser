@@ -15,6 +15,7 @@ import base64
 import os
 import struct
 import sys
+import urllib.parse
 
 from pprint import pprint
 
@@ -124,15 +125,19 @@ def rgba(argb_tuple):
     a = (a / 255) if a > 0 else 1.0
     return "rgba(%d, %d, %d, %.6f)" % (r, g, b, a)
 
-def img_data(buf):
+def data_url(buf):
     if buf.startswith(b"\x89PNG\r\n"):
         img_type = "image/png"
     elif buf.startswith(b"\xff\xd8"):
         img_type = "image/jpeg"
     else:
         img_type = "application/octet-stream"
-    encoded = base64.b64encode(buf).decode("us-ascii")
-    return "data:%s,%s" % (img_type, encoded)
+    encoded = base64.b64encode(buf)
+    encoded = urllib.parse.quote(encoded)
+    return "data:%s;base64,%s" % (img_type, encoded)
+
+def css_imgdata(buf):
+    return "url('%s')" % data_url(buf)
 
 def parse_file(arg):
     print("file =", arg)
@@ -325,6 +330,7 @@ def parse_file(arg):
             else:
                 f.read(3)
         elif type == b"I":
+            addr = 0
             if version == 16:
                 pos = f.read_coords(rel_to_abs=True)
                 size = f.read_coords()
@@ -339,11 +345,14 @@ def parse_file(arg):
                 pos = f.read_coords()
                 size = f.read_coords()
                 color = f.read_color()
-                f.read(6)
+                f.read(3)
+                addr = f.read_medium()
             yield {"_type": "box",
+                   "kind": "image",
                    "pos": pos,
                    "size": size,
-                   "fill": color}
+                   "fill": color,
+                   "blob": addr}
         elif type == b"L":
             f.read(9)
         elif type == b"M":
@@ -354,9 +363,11 @@ def parse_file(arg):
             files_start = f.fh.tell()
             files_end = f.fh.tell() + exp_files_bytes
             while f.fh.tell() < files_end:
+                addr = f.fh.tell() - files_start
                 buf = f.read_blob()
                 yield {"_type": "file",
-                       "data": buf[:16]+b"..."}
+                       "addr": addr,
+                       "data": buf}
             print("files started at %d, ends at %d" % (files_start, f.fh.tell()))
             if f.fh.tell() != files_end:
                 raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
@@ -405,6 +416,9 @@ font_sizes = {
 
 for arg in sys.argv[1:]:
     with open("%s.html" % arg, "w") as fout:
+        id_alloc = iter(infinity())
+        imgboxes = {}
+
         fout.write('<!DOCTYPE html>\n')
         fout.write('<meta charset="utf-8">\n')
         fout.write('<style>\n')
@@ -444,19 +458,6 @@ for arg in sys.argv[1:]:
                 fout.write('<div class="item text" style="%s">' % style)
                 fout.write(item["text"])
                 fout.write('</div>\n')
-            elif type == "image_link":
-                item_x, item_y = item["pos"]
-                item_w, item_h = item["size"]
-                style = [
-                    "background-image: url('%s')" % item["src"],
-                    "position: absolute",
-                    "left: %dpx" % item_x,
-                    "top: %dpx" % item_y,
-                    "width: %dpx" % item_w,
-                    "height: %dpx" % item_h,
-                ]
-                style = "; ".join(style)
-                fout.write('<div class="item img" style="%s"></div>\n' % style)
             elif type == "box":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
@@ -469,7 +470,12 @@ for arg in sys.argv[1:]:
                     "height: %dpx" % item_h,
                 ]
                 style = "; ".join(style)
-                fout.write('<div class="item box" style="%s"></div>\n' % style)
+                if item.get("kind") == "image":
+                    box_id = "imgbox_%d" % next(id_alloc)
+                    fout.write('<div class="item img" style="%s" id="%s"></div>\n' % (style, box_id))
+                    imgboxes.setdefault(item["blob"], []).append(box_id)
+                else:
+                    fout.write('<div class="item box" style="%s"></div>\n' % style)
             elif type == "link":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
@@ -484,6 +490,12 @@ for arg in sys.argv[1:]:
                 style = "; ".join(style)
                 fout.write('<a class="item link" href="%s" style="%s"></a>\n' % (item["href"], style))
             elif type == "file":
-                # look up mimetype from last 'i' item
-                # look up <img> tag from last "image"
-                pass
+                fout.write('<script>\n')
+                box_ids = imgboxes.get(item["addr"])
+                if box_ids:
+                    fout.write('var bg = "%s";\n' % css_imgdata(item["data"]))
+                    for box_id in box_ids:
+                        fout.write('var div = document.getElementById("%s");\n' % box_id)
+                        fout.write('div.style.backgroundImage = bg;\n')
+                        fout.write('div.style.backgroundColor = "";\n')
+                fout.write('</script>\n')
