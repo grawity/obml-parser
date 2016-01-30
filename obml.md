@@ -145,7 +145,7 @@ In v≤13, contain `byte[16]`, `blob`, `blob`, `byte[3]`.
 
 Image.
 
-In v16, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `unknown: byte[11]`.
+In v16, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `file_addr: medium`, `unknown: byte[11]`.
 
 In v15, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `unknown: byte[14]`.
 
