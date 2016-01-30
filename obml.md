@@ -143,11 +143,17 @@ In v≤13, contain `pos: coords`, `size: coords`, `fill: color`.
 
 ### Content: 'F' chunks
 
-Unknown.
+Form fields.
 
-In v≥15, contain `byte[16]`, `blob`, `blob`, `byte[5]`.
+In v≥15, contain `pos: coords[rel]`, `size: coords`, `foreground: color`, `type: byte[2]`, `field_id: string`, `value: string`, `byte[5]`.
 
-In v≤13, contain `byte[16]`, `blob`, `blob`, `byte[3]`.
+In v≤13, contain `pos: coords[rel]`, `size: coords`, `foreground: color`, `type: byte[2]`, `field_id: string`, `value: string`, `byte[3]`.
+
+Types:
+
+ - `a` is a multi-line input box (textarea)
+ - `c` is a checkbox
+ - `x` is a single-line input box
 
 ### Content: 'I' chunks
 
