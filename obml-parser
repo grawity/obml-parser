@@ -124,6 +124,16 @@ def rgba(argb_tuple):
     a = (a / 255) if a > 0 else 1.0
     return "rgba(%d, %d, %d, %.6f)" % (r, g, b, a)
 
+def img_data(buf):
+    if buf.startswith(b"\x89PNG\r\n"):
+        img_type = "image/png"
+    elif buf.startswith(b"\xff\xd8"):
+        img_type = "image/jpeg"
+    else:
+        img_type = "application/octet-stream"
+    encoded = base64.b64encode(buf).decode("us-ascii")
+    return "data:%s,%s" % (img_type, encoded)
+
 def parse_file(arg):
     print("file =", arg)
 
