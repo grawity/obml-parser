@@ -435,6 +435,11 @@ def parse_file(arg):
                    "color": color,
                    "pos": pos,
                    "size": size}
+        elif type == b"z":
+            if version == 16:
+                f.read(6)
+            else:
+                raise ValueError("unhandled content chunk %r/v%r" % (type, version))
         else:
             raise ValueError("unknown content chunk %r/v%r" % (type, version))
 
