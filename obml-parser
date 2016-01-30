@@ -148,28 +148,27 @@ def parse_file(arg):
         expected_size = f.read_medium()
         version = f.read_byte()
         exp_total_bytes = expected_size + 7
+    elif version == 15:
+        raise ValueError("bad header for version %r" % version)
     else:
         exp_total_bytes = expected_size + 3
 
     exp_links_bytes = 0
 
-    if version == 16:
-        page_size = f.read_coords()
-        assert(f.read_short() == 0xFFFF)
-    elif version == 15:
-        f.read(10)
-    elif version in {12, 13}:
-        f.read(10)
-    else:
-        raise ValueError("bad version")
+    if version not in {12, 13, 15, 16}:
+        raise ValueError("unknown version %r" % version)
 
+    page_size = f.read_coords()
+    if version == 16:
+        assert(f.read_short() == 0xFFFF)
     page_title = f.read_string()
     f.read_blob() # 'C\x10\x10...' on v15, nil elsewhere
     f.url_base = f.read_string()
     page_url = f.read_url()
     yield {"_type": "head",
            "title": page_title,
-           "url": page_url}
+           "url": page_url,
+           "dimensions": page_size}
 
     if version >= 15:
         f.read(6)
