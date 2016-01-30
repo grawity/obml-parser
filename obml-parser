@@ -208,95 +208,56 @@ def parse_file(arg):
                 f.read_string()
                 f.read_string()
         elif type == b"i":
-            # "i" image
+            n = f.read_byte()
+            boxes = []
+            for j in range(n):
+                pos = f.read_coords()
+                size = f.read_coords()
+                boxes.append((pos, size))
             if version >= 15:
-                n = f.read_byte()
-                boxes = []
-                for j in range(n):
-                    pos = f.read_coords()
-                    size = f.read_coords()
-                    boxes.append((pos, size))
                 img_url = f.read_url()
                 assert(f.read(2) == b"\x01t")
                 img_type = f.read_string()
-                for pos, size in boxes:
-                    yield {"_type": "image",
-                           "src": img_url,
-                           "type": img_type,
-                           "pos": pos,
-                           "size": size}
             elif version == 13:
-                n = f.read_byte()
-                boxes = []
-                for j in range(n):
-                    pos = f.read_coords()
-                    size = f.read_coords()
-                    boxes.append((pos, size))
                 img_url = f.read_url()
                 f.read(2)
                 img_type = f.read_string()
-                for pos, size in boxes:
-                    yield {"_type": "image",
-                           "src": img_url,
-                           "type": img_type,
-                           "pos": pos,
-                           "size": size}
             elif version == 12:
-                n = f.read_byte()
-                boxes = []
-                for j in range(n):
-                    pos = f.read_coords()
-                    size = f.read_coords()
-                    boxes.append((pos, size))
                 img_type = f.read_string()
                 img_url = f.read_url()
+            for pos, size in boxes:
+                yield {"_type": "image",
+                       "src": img_url,
+                       "type": img_type,
+                       "pos": pos,
+                       "size": size}
         elif type in {b"L", b"P"}:
-            # "L" link
-            # "P" ??? (usually mailto link)
+            n = f.read_byte()
+            if version == 12:
+                f.read(2)
+            boxes = []
+            for j in range(n):
+                pos = f.read_coords()
+                size = f.read_coords()
+                boxes.append((pos, size))
             if version >= 15:
-                n = f.read_byte()
-                boxes = []
-                for j in range(n):
-                    pos = f.read_coords()
-                    size = f.read_coords()
-                    boxes.append((pos, size))
                 link_url = f.read_url()
                 assert(f.read(2) == b"\x01t")
                 link_type = f.read_string()
-                if not link_url.startswith("b:"):
-                    print("link =", link_url)
-                    for pos, size in boxes:
-                        yield {"_type": "link",
-                               "href": link_url,
-                               "type": link_type,
-                               "pos": pos,
-                               "size": size}
             elif version == 13:
-                n = f.read_byte()
-                boxes = []
-                for j in range(n):
-                    pos = f.read_coords()
-                    size = f.read_coords()
-                    boxes.append((pos, size))
                 link_url = f.read_url()
                 f.read(2)
                 link_type = f.read_string()
+            elif version == 12:
+                link_url = f.read_url()
+                link_type = ""
+            if not link_url.startswith("b:"):
                 for pos, size in boxes:
                     yield {"_type": "link",
                            "href": link_url,
                            "type": link_type,
                            "pos": pos,
                            "size": size}
-            elif version == 12:
-                n = f.read_byte()
-                f.read(2)
-                boxes = []
-                for j in range(n):
-                    pos = f.read_coords()
-                    size = f.read_coords()
-                    boxes.append((pos, size))
-                link_url = f.read_url()
-                print("link =", link_url)
         elif type in {b"C", b"I", b"N", b"S", b"w", b"W"} and version >= 15:
             n = f.read_byte()
             for j in range(n):
