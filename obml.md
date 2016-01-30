@@ -47,7 +47,9 @@ Note that *file_size* only includes the bytes following it. It doesn't include t
 
 Following is `page_size: coords`.
 
-In v16, following is `unknown: short` (always 0xFFFF).
+In v16, following is `unknown: bytes[3]` (always `S\x00\x00`).
+
+Following is `unknown: short` (always 0xFFFF).
 
 Following are `page_title: string`, `unknown: blob`, `page_url_base: string`, and `page_url: url`. The unknown blob seems to always start with `C\x10\x10...` on v15, empty otherwise.
 
