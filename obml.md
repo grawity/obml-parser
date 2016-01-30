@@ -101,7 +101,7 @@ In v12 the format is `box_count: byte`, followed by that many `(pos: coords, siz
 
 `link_target` can be an _url_, a _string_, or an unknown blob.
 
-### Links: 'I', 'N', 'S', 'w', 'W' chunks
+### Links: 'I', 'N', 'S', chunks
 
 Unknown region types. These follow the "region chunk" format.
 
@@ -122,6 +122,14 @@ URLs starting with `b:` seem to be JavaScript links.
 ### Links: 'P' chunks
 
 Link region similar to 'L' but containing a "platform" link (usually `mailto:`).
+
+### Links: 'w' chunks
+
+Link region similar to 'L' but meant to trigger a file download dialog (for image "Save" buttons). The target URL is hosted by the Opera Mini proxy, and expires after some time.
+
+### Links: 'W' chunks
+
+Link region similar to 'w' but meant to open the target in platform's native web browser (for image "Open" buttons).
 
 ## Content section
 
