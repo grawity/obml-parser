@@ -55,6 +55,8 @@ Following are `page_title: string`, `unknown: blob`, `page_url_base: string`, an
 
 Following is an unknown header (6 bytes for v≥15, 5 bytes for v≤13).
 
+ - In v13, the format appears to be `counter: short`, `unknown: medium`.
+
 Following is the "metadata" section and the "content" section, both composed of tagged chunks.
 
 ## Metadata section
@@ -67,7 +69,11 @@ In v≥15, always contain `byte[23]` of unknown data.
 
 ### Metadata: 'M' chunks
 
-Always contain `byte[2]`, `blob` of unknown data. It seems the first byte is a sub-type. One subtype seems to contain a favicon as PNG, one contains an unknown blob of repeating `...\xff\x03\x00\x02\x00\x00...` junk.
+Always contain `subtype: char`, `unknown: byte` (always 0x00), `data: blob`.
+
+#### 'S' sub-type
+
+Secure connection (TLS) information. Contains `byte[6]`, `cert_expiry: string`, `secure_status: string`, `tls_details: string`, `cert_common_name: string`.
 
 ### Metadata: 'S' chunks
 
@@ -143,9 +149,11 @@ In v16, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `unknown: byt
 
 In v15, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `unknown: byte[14]`.
 
-In v≤13, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `unknown: byte[6]`.
+In v≤13, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `unknown: byte[3]`, `file_addr: medium`.
 
 *fill* is the image's average color, for use as placeholder when images are disabled/loading.
+
+*file_addr* is the byte offset within the 'S'-chunk, relative to the end of *data_size*.
 
 ### Content: 'L' chunks
 
@@ -167,7 +175,7 @@ Embedded images.
 
 Contain `data_size: medium`, followed by some number of `file_data: blob`. (The blob count isn't given, so keep reading blobs until you've consumed at least *data_size* bytes.)
 
-Each 𝒏-th blob contains an image (PNG or JPEG) to be drawn in the corresponding 𝒏-th 'I' content chunk.
+Each blob contains an image (PNG or JPEG) to be drawn in all 'I'-chunks whose *file_addr* matches the blob's offset relative to the end of *data_size*.
 
 ### Content: 'T' chunks
 
