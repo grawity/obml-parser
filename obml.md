@@ -140,11 +140,13 @@ In v≤13, contain `byte[16]`, `blob`, `blob`, `byte[3]`.
 
 Image.
 
-In v16, contain `pos: coords[rel]`, `size: coords`, `unknown: byte[15]`.
+In v16, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `unknown: byte[11]`.
 
-In v15, contain `pos: coords[rel]`, `size: coords`, `unknown: byte[18]`.
+In v15, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `unknown: byte[14]`.
 
-In v≤13, contain `byte[20]` (not investigated yet).
+In v≤13, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `unknown: byte[6]`.
+
+*fill* is the image's average color, for use as placeholder when images are disabled/loading.
 
 ### 'L' chunks
 
