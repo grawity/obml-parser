@@ -435,6 +435,7 @@ for arg in sys.argv[1:]:
                 fout.write('<title>%s</title>\n' % item["title"])
             elif type == "text":
                 item_x, item_y = item["pos"]
+                item_w, item_h = item["size"]
                 font_size = item["font"] & ~1
                 font_weight = item["font"] & 1
                 style = [
@@ -447,13 +448,9 @@ for arg in sys.argv[1:]:
                     "position: absolute",
                     "left: %dpx" % item_x,
                     "top: %dpx" % item_y,
+                    "width: %dpx" % item_w,
+                    "height: %dpx" % item_h,
                 ]
-                if "size" in item:
-                    style += [
-                        "width: %dpx" % item["size"][0],
-                        "height: %dpx" % item["size"][1],
-                        #"outline: 1px dotted %s" % rgba(item["color"]),
-                    ]
                 style = "; ".join(style)
                 fout.write('<div class="item text" style="%s">' % style)
                 fout.write(item["text"])
