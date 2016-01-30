@@ -180,7 +180,7 @@ In v15, contain `pos: coords[rel]`, `size: coords`, `foreground: color`, `font: 
 
 In v≤13, contain `pos: coords`, `size: coords`, `foreground: color`, `font: byte`, `text: string`.
 
-In *font*, the least-significant bit indicates bold text. With the 'bold' bit masked out, the remaining bits indicate the font size:
+In *font*, the least-significant bit indicates bold text. With the 'bold' bit masked out, the remaining value indicates the font size:
 
   * `0` – medium (approx. 11px)
   * `2` – large (approx. 12px)
