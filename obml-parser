@@ -425,12 +425,29 @@ for arg in sys.argv[1:]:
 
         fout.write('<!DOCTYPE html>\n')
         fout.write('<meta charset="utf-8">\n')
-        fout.write('<style>\n')
-        fout.write('.box { z-index: -100; }\n')
-        fout.write('.img { z-index: -50; }\n')
-        fout.write('.link { z-index: 100; }\n')
-        fout.write('.link:hover { outline: 1px solid blue; }\n')
-        fout.write('</style>\n')
+        fout.write('<style>\n'
+                   '.box {\n'
+                   '  z-index: -100;\n'
+                   '}\n'
+                   '.img {\n'
+                   '  z-index: -50;\n'
+                   '}\n'
+                   '.link {\n'
+                   '  display: block;\n'
+                   '  z-index: 100;\n'
+                   '}\n'
+                   '.link:hover {\n'
+                   '  outline: 1px solid blue;\n'
+                   '}\n'
+                   '.item {\n'
+                   '  position: absolute;\n'
+                   '}\n'
+                   '.text {\n'
+                   '  font-family: sans-serif;\n'
+                   '  line-height: 1.1;\n'
+                   '  white-space: pre;\n'
+                   '}\n'
+                   '</style>\n')
         for item in parse_file(arg):
             type = item["_type"]
             pprint(item)
@@ -443,13 +460,9 @@ for arg in sys.argv[1:]:
                 font_size = item["font"] & ~1
                 font_weight = item["font"] & 1
                 style = [
-                    "white-space: pre",
-                    "font-family: sans-serif",
                     "font-size: %s" % font_sizes[font_size],
                     "font-weight: %s" % ("bold" if font_weight else "normal"),
-                    "line-height: 1.1",
                     "color: %s" % rgba(item["color"]),
-                    "position: absolute",
                     "left: %dpx" % item_x,
                     "top: %dpx" % item_y,
                     "width: %dpx" % item_w,
@@ -464,7 +477,6 @@ for arg in sys.argv[1:]:
                 item_w, item_h = item["size"]
                 style = [
                     "background-color: %s" % rgba(item["fill"]),
-                    "position: absolute",
                     "left: %dpx" % item_x,
                     "top: %dpx" % item_y,
                     "width: %dpx" % item_w,
@@ -481,12 +493,10 @@ for arg in sys.argv[1:]:
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
                 style = [
-                    "position: absolute",
                     "left: %dpx" % item_x,
                     "top: %dpx" % item_y,
                     "width: %dpx" % item_w,
                     "height: %dpx" % item_h,
-                    "display: block",
                 ]
                 style = "; ".join(style)
                 fout.write('<a class="item link" href="%s" style="%s"></a>\n' % (item["href"], style))
