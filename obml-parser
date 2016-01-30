@@ -190,6 +190,8 @@ def parse_file(arg):
 
     print("section 1 ends at %d" % f.fh.tell())
 
+    # link sub-section
+
     links_start = f.fh.tell()
     links_end = f.fh.tell() + exp_links_bytes
 
@@ -327,145 +329,113 @@ def parse_file(arg):
     if f.fh.tell() != links_end:
         raise ValueError("link section ended at %d, expected %d" % (f.fh.tell(), links_end))
 
+    # content section
+
     content_start = f.fh.tell()
     content_end = exp_total_bytes
 
-    if version >= 15:
-        while f.fh.tell() < content_end:
-            print("--- content [%d] ---" % f.fh.tell())
-            type = f.read(1)
-            if None:
-                pass
-            elif type == b"o":
+    while f.fh.tell() < content_end:
+        print("--- content [%d] ---" % f.fh.tell())
+        type = f.read(1)
+        if None:
+            pass
+        elif type == b"o":
+            if version >= 15:
                 # TODO: not sure if actual type or just part of preceding "I"-block
                 f.read_chunk()
-            elif type == b"B":
+            else:
+                raise ValueError("unhandled content chunk %r/v%r" % (type, version))
+        elif type == b"B":
+            if version >= 15:
                 pos = f.read_coords(rel_to_abs=True)
                 size = f.read_coords()
                 color = f.read_color()
-                yield {"_type": "box",
-                       "pos": pos,
-                       "size": size,
-                       "fill": color}
-            elif type == b"F":
-                f.read(16)
-                f.read_chunk()
-                f.read_chunk()
+            else:
+                pos = f.read_coords()
+                size = f.read_coords()
+                color = f.read_color()
+            yield {"_type": "box",
+                   "pos": pos,
+                   "size": size,
+                   "fill": color}
+        elif type == b"F":
+            f.read(16)
+            f.read_chunk()
+            f.read_chunk()
+            if version >= 15:
                 f.read(5)
-            elif type == b"I":
-                if version == 16:
-                    pos = f.read_coords(rel_to_abs=True)
-                    size = f.read_coords()
-                    f.read(15)
-                elif version == 15:
-                    pos = f.read_coords(rel_to_abs=True)
-                    size = f.read_coords()
-                    f.read(18)
+            else:
+                f.read(3)
+        elif type == b"I":
+            if version == 16:
+                pos = f.read_coords(rel_to_abs=True)
+                size = f.read_coords()
+                f.read(15)
                 yield {"_type": "box",
                        "pos": pos,
                        "size": size,
                        "fill": (127, 255, 0, 0)}
-            elif type == b"L":
-                f.read(9)
-            elif type == b"M":
-                f.read(2)
-                f.read_chunk()
-            elif type == b"S":
-                exp_files_bytes = f.read_medium()
-                files_start = f.fh.tell()
-                files_end = f.fh.tell() + exp_files_bytes
-                while f.fh.tell() < files_end:
-                    buf = f.read_chunk()
-                    yield {"_type": "file",
-                           "data": buf[:16]+b"..."}
-                print("files started at %d, ends at %d" % (files_start, f.fh.tell()))
-                if f.fh.tell() != files_end:
-                    raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
-            elif type == b"T":
+            elif version == 15:
                 pos = f.read_coords(rel_to_abs=True)
                 size = f.read_coords()
-                color = f.read_color()
-                if version == 16:
-                    f.read(1)
-                    font = 4 | (f.read_byte() & 1)
-                    n = f.read_byte()
-                    for j in range(n):
-                        print("text link", f.read(1), f.read_chunk())
-                    text = f.read_string()
-                elif version == 15:
-                    font = f.read_byte()
-                    text = f.read_string()
-                yield {"_type": "text",
-                       "text": text,
-                       "font": font,
-                       "color": color,
-                       "pos": pos,
-                       "size": size}
-            else:
-                raise ValueError("in content section, unknown type %r" % type)
-
-        print("section 3 started at %d, ends at %d" % (content_start, f.fh.tell()))
-        if f.fh.tell() != content_end:
-            raise ValueError("content section ended at %d, expected %d" % (f.fh.tell(), content_end))
-
-    elif version == 12 or version == 13:
-        while f.fh.tell() < content_end:
-            print("--- content [%d] ---" % f.fh.tell())
-            type = f.read(1)
-            if None:
-                pass
-            elif type == b"B":
-                pos = f.read_coords()
-                size = f.read_coords()
-                color = f.read_color()
+                f.read(18)
                 yield {"_type": "box",
                        "pos": pos,
                        "size": size,
-                       "fill": color}
-            elif type == b"F":
-                f.read(16)
-                f.read_chunk()
-                f.read_chunk()
-                f.read(3)
-            elif type == b"I":
+                       "fill": (127, 255, 0, 0)}
+            else:
                 f.read(20)
-            elif type == b"L":
-                f.read(9)
-            elif type == b"M":
-                f.read(2)
-                f.read_chunk()
-            elif type == b"S":
-                exp_files_bytes = f.read_medium()
-                files_start = f.fh.tell()
-                files_end = f.fh.tell() + exp_files_bytes
-                while f.fh.tell() < files_end:
-                    buf = f.read_chunk()
-                    yield {"_type": "file",
-                           "data": buf[:16]+b"..."}
-                print("files started at %d, ends at %d" % (files_start, f.fh.tell()))
-                if f.fh.tell() != files_end:
-                    raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
-            elif type == b"T":
+        elif type == b"L":
+            f.read(9)
+        elif type == b"M":
+            f.read(2)
+            f.read_chunk()
+        elif type == b"S":
+            exp_files_bytes = f.read_medium()
+            files_start = f.fh.tell()
+            files_end = f.fh.tell() + exp_files_bytes
+            while f.fh.tell() < files_end:
+                buf = f.read_chunk()
+                yield {"_type": "file",
+                       "data": buf[:16]+b"..."}
+            print("files started at %d, ends at %d" % (files_start, f.fh.tell()))
+            if f.fh.tell() != files_end:
+                raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
+        elif type == b"T":
+            if version == 16:
+                pos = f.read_coords(rel_to_abs=True)
+                size = f.read_coords()
+                color = f.read_color()
+                f.read(1)
+                font = 4 | (f.read_byte() & 1)
+                n = f.read_byte()
+                for j in range(n):
+                    print("text link", f.read(1), f.read_chunk())
+                text = f.read_string()
+            elif version == 15:
+                pos = f.read_coords(rel_to_abs=True)
+                size = f.read_coords()
+                color = f.read_color()
+                font = f.read_byte()
+                text = f.read_string()
+            else:
                 pos = f.read_coords()
                 size = f.read_coords()
                 color = f.read_color()
                 font = f.read_byte()
                 text = f.read_string()
-                yield {"_type": "text",
-                       "text": text,
-                       "font": font,
-                       "color": color,
-                       "pos": pos,
-                       "size": size}
-            else:
-                raise ValueError("in content section, unknown type %r" % type)
+            yield {"_type": "text",
+                   "text": text,
+                   "font": font,
+                   "color": color,
+                   "pos": pos,
+                   "size": size}
+        else:
+            raise ValueError("unknown content chunk %r/v%r" % (type, version))
 
-        print("section 3 started at %d, ends at %d" % (content_start, f.fh.tell()))
-        if f.fh.tell() != content_end:
-            raise ValueError("content section ended at %d, expected %d" % (f.fh.tell(), content_end))
-
-    else:
-        raise ValueError('unknown version %d' % version)
+    print("section 3 started at %d, ends at %d" % (content_start, f.fh.tell()))
+    if f.fh.tell() != content_end:
+        raise ValueError("content section ended at %d, expected %d" % (f.fh.tell(), content_end))
 
 font_sizes = {
     0: "11px", # medium
