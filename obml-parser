@@ -166,27 +166,34 @@ def parse_file(arg):
     else:
         f.read(5)
 
+    # metadata section
 
-    if version >= 15:
-        for i in infinity(start=1):
-            type = f.read(1)
-            if type == b"M":
-                f.read(2)
-                f.read_chunk()
-            elif type == b"S":
-                f.read(1)
-                exp_links_bytes = f.read_short()
-                break
-            elif type == b"C":
+    while True:
+        print("--- metadata [%d] ---" % f.fh.tell())
+        type = f.read(1)
+        if None:
+            pass
+        elif type == b"C":
+            if version >= 15:
                 f.read(23)
             else:
-                raise ValueError("in unknown section, unknown type %r" % type)
+                raise ValueError("unhandled metadata chunk %r/v%r" % (type, version))
+        elif type == b"M":
+            f.read(2)
+            f.read_chunk()
+        elif type == b"S":
+            f.read(1)
+            exp_links_bytes = f.read_short()
+            break
+        else:
+            raise ValueError("unknown metadata chunk %r" % type)
 
-        print("section 1 ends at %d" % f.fh.tell())
+    print("section 1 ends at %d" % f.fh.tell())
 
-        links_start = f.fh.tell()
-        links_end = f.fh.tell() + exp_links_bytes
+    links_start = f.fh.tell()
+    links_end = f.fh.tell() + exp_links_bytes
 
+    if version >= 15:
         while f.fh.tell() < links_end:
             print("--- links [%d] ---" % f.fh.tell())
             type = f.read(1)
@@ -333,28 +340,6 @@ def parse_file(arg):
             raise ValueError("content section ended at %d, expected %d" % (f.fh.tell(), content_end))
 
     elif version == 12 or version == 13:
-        for i in infinity(start=1):
-            print("--- section 1 item %d ---" % i)
-            type = f.read(1)
-            if None:
-                pass
-            elif type == b"M":
-                if version in {12, 13}:
-                    f.read(2)
-                    f.read_chunk()
-            elif type == b"S":
-                if version in {12, 13}:
-                    f.read(1)
-                    exp_links_bytes = f.read_short()
-                    break
-            else:
-                raise ValueError("in header section, unknown type %r" % type)
-
-        print("section 1 ends at %d" % f.fh.tell())
-
-        links_start = f.fh.tell()
-        links_end = f.fh.tell() + exp_links_bytes
-
         while f.fh.tell() < links_end:
             print("--- links [%d] ---" % f.fh.tell())
             type = f.read(1)
