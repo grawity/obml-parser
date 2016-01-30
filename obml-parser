@@ -182,8 +182,7 @@ def parse_file(arg):
             f.read(2)
             f.read_chunk()
         elif type == b"S":
-            f.read(1)
-            exp_links_bytes = f.read_short()
+            exp_links_bytes = f.read_medium()
             break
         else:
             raise ValueError("unknown metadata chunk %r" % type)
