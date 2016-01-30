@@ -1,9 +1,15 @@
 #!/usr/bin/env python
 # A barebones parser for OBML files used by Opera Mini
 #
+# (c) 2014–2016 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT Expat License
+#
 # Originally intended to extract original URLs from saved pages, after Opera dropped
 # binary compatibilty between minor releases and left me with a bunch of unreadable
 # saved pages in v15 — and it does that.
+#
+# An attempt to document the file format is at:
+#   https://gist.github.com/grawity/702b31cddcc5a6622724
 
 import base64
 import os
