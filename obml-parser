@@ -331,21 +331,22 @@ def parse_file(arg):
             if version == 16:
                 pos = f.read_coords(rel_to_abs=True)
                 size = f.read_coords()
-                f.read(15)
-                yield {"_type": "box",
-                       "pos": pos,
-                       "size": size,
-                       "fill": (127, 255, 0, 0)}
+                color = f.read_color()
+                f.read(11)
             elif version == 15:
                 pos = f.read_coords(rel_to_abs=True)
                 size = f.read_coords()
-                f.read(18)
-                yield {"_type": "box",
-                       "pos": pos,
-                       "size": size,
-                       "fill": (127, 255, 0, 0)}
+                color = f.read_color()
+                f.read(14)
             else:
-                f.read(20)
+                pos = f.read_coords()
+                size = f.read_coords()
+                color = f.read_color()
+                f.read(6)
+            yield {"_type": "box",
+                   "pos": pos,
+                   "size": size,
+                   "fill": color}
         elif type == b"L":
             f.read(9)
         elif type == b"M":
