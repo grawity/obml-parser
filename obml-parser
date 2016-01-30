@@ -217,32 +217,7 @@ def parse_file(arg):
             for j in range(n):
                 f.read_string()
                 f.read_string()
-        elif type == b"i":
-            # shared 'region' format
-            n = f.read_byte()
-            boxes = []
-            for j in range(n):
-                pos = f.read_coords()
-                size = f.read_coords()
-                boxes.append((pos, size))
-            if version >= 15:
-                img_url = f.read_url()
-                assert(f.read(2) == b"\x01t")
-                img_type = f.read_string()
-            elif version == 13:
-                img_url = f.read_url()
-                f.read(2)
-                img_type = f.read_string()
-            elif version == 12:
-                img_type = f.read_string()
-                img_url = f.read_url()
-            for pos, size in boxes:
-                yield {"_type": "image",
-                       "src": img_url,
-                       "type": img_type,
-                       "pos": pos,
-                       "size": size}
-        elif type in {b"L", b"P"}:
+        elif type in {b"i", b"L", b"P"}:
             # shared 'region' format
             n = f.read_byte()
             boxes = []
@@ -261,13 +236,21 @@ def parse_file(arg):
             elif version == 12:
                 link_type = f.read_string()
                 link_url = f.read_url()
-            if not link_url.startswith("b:"):
+            if type == b"i":
                 for pos, size in boxes:
-                    yield {"_type": "link",
-                           "href": link_url,
+                    yield {"_type": "image_link",
+                           "src": link_url,
                            "type": link_type,
                            "pos": pos,
                            "size": size}
+            else:
+                if not link_url.startswith("b:"):
+                    for pos, size in boxes:
+                        yield {"_type": "link",
+                               "href": link_url,
+                               "type": link_type,
+                               "pos": pos,
+                               "size": size}
         elif type in {b"C", b"I", b"N", b"S", b"w", b"W"} and version >= 15:
             # shared 'region' format
             n = f.read_byte()
@@ -460,10 +443,9 @@ for arg in sys.argv[1:]:
                 fout.write('<div class="item text" style="%s">' % style)
                 fout.write(item["text"])
                 fout.write('</div>\n')
-            elif type == "image":
+            elif type == "image_link":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
-                repeat = True
                 style = [
                     "background-image: url('%s')" % item["src"],
                     "position: absolute",
@@ -473,10 +455,7 @@ for arg in sys.argv[1:]:
                     "height: %dpx" % item_h,
                 ]
                 style = "; ".join(style)
-                if repeat:
-                    fout.write('<div class="item img" style="%s"></div>\n' % style)
-                else:
-                    fout.write('<img class="item img" src="%s" style="%s">\n' % (item["src"], style))
+                fout.write('<div class="item img" style="%s"></div>\n' % style)
             elif type == "box":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
