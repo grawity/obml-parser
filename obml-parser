@@ -479,7 +479,7 @@ def parse_file(arg):
             elif type == b"L":
                 f.read(9)
             elif type == b"M":
-                f.read_short()
+                f.read(2)
                 f.read_chunk()
             elif type == b"S":
                 exp_files_bytes = f.read_medium()
