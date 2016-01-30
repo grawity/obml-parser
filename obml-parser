@@ -193,21 +193,21 @@ def parse_file(arg):
     links_start = f.fh.tell()
     links_end = f.fh.tell() + exp_links_bytes
 
-    if version >= 15:
-        while f.fh.tell() < links_end:
-            print("--- links [%d] ---" % f.fh.tell())
-            type = f.read(1)
-            if None:
-                pass
-            elif type == b"\x00":
-                # <option> selections
-                f.read(1)
-                n = f.read_byte()
-                for j in range(n):
-                    f.read_string()
-                    f.read_string()
-            elif type == b"i":
-                # "i" image
+    while f.fh.tell() < links_end:
+        print("--- links [%d] ---" % f.fh.tell())
+        type = f.read(1)
+        if None:
+            pass
+        elif type == b"\x00":
+            # <option> selections
+            f.read(1)
+            n = f.read_byte()
+            for j in range(n):
+                f.read_string()
+                f.read_string()
+        elif type == b"i":
+            # "i" image
+            if version >= 15:
                 n = f.read_byte()
                 boxes = []
                 for j in range(n):
@@ -223,9 +223,35 @@ def parse_file(arg):
                            "type": img_type,
                            "pos": pos,
                            "size": size}
-            elif type in {b"L", b"P"}:
-                # "L" link
-                # "P" ??? (usually mailto link)
+            elif version == 13:
+                n = f.read_byte()
+                boxes = []
+                for j in range(n):
+                    pos = f.read_coords()
+                    size = f.read_coords()
+                    boxes.append((pos, size))
+                img_url = f.read_url()
+                f.read(2)
+                img_type = f.read_string()
+                for pos, size in boxes:
+                    yield {"_type": "image",
+                           "src": img_url,
+                           "type": img_type,
+                           "pos": pos,
+                           "size": size}
+            elif version == 12:
+                n = f.read_byte()
+                boxes = []
+                for j in range(n):
+                    pos = f.read_coords()
+                    size = f.read_coords()
+                    boxes.append((pos, size))
+                img_type = f.read_string()
+                img_url = f.read_url()
+        elif type in {b"L", b"P"}:
+            # "L" link
+            # "P" ??? (usually mailto link)
+            if version >= 15:
                 n = f.read_byte()
                 boxes = []
                 for j in range(n):
@@ -243,25 +269,68 @@ def parse_file(arg):
                                "type": link_type,
                                "pos": pos,
                                "size": size}
-            elif type in {b"C", b"I", b"N", b"S", b"w", b"W"}:
-                # other kinds of links?
+            elif version == 13:
                 n = f.read_byte()
+                boxes = []
                 for j in range(n):
                     pos = f.read_coords()
                     size = f.read_coords()
-                f.read_chunk()
-                assert(f.read(2) == b"\x01t")
-                f.read_chunk()
-            else:
-                raise ValueError("in link section, unknown type %r" % type)
+                    boxes.append((pos, size))
+                link_url = f.read_url()
+                f.read(2)
+                link_type = f.read_string()
+                for pos, size in boxes:
+                    yield {"_type": "link",
+                           "href": link_url,
+                           "type": link_type,
+                           "pos": pos,
+                           "size": size}
+            elif version == 12:
+                n = f.read_byte()
+                f.read(2)
+                boxes = []
+                for j in range(n):
+                    pos = f.read_coords()
+                    size = f.read_coords()
+                    boxes.append((pos, size))
+                link_url = f.read_url()
+                print("link =", link_url)
+        elif type in {b"C", b"I", b"N", b"S", b"w", b"W"} and version >= 15:
+            n = f.read_byte()
+            for j in range(n):
+                pos = f.read_coords()
+                size = f.read_coords()
+            f.read_chunk()
+            assert(f.read(2) == b"\x01t")
+            f.read_chunk()
+        elif type in {b"S"} and version == 13:
+            n = f.read_byte()
+            for j in range(n):
+                pos = f.read_coords()
+                size = f.read_coords()
+            f.read_chunk()
+            f.read(2)
+            f.read_chunk()
+        elif type == b"C" and version == 12:
+            f.read(24)
+        elif type in {b"I", b"S", b"W"} and version == 12:
+            n = f.read_byte()
+            for j in range(n):
+                pos = f.read_coords()
+                size = f.read_coords()
+            f.read_chunk()
+            f.read_chunk()
+        else:
+            raise ValueError("unknown link chunk %r/v%r" % (type, version))
 
-        print("section 2 ends at %d" % f.fh.tell())
-        if f.fh.tell() != links_end:
-            raise ValueError("link section ended at %d, expected %d" % (f.fh.tell(), links_end))
+    print("section 2 ends at %d" % f.fh.tell())
+    if f.fh.tell() != links_end:
+        raise ValueError("link section ended at %d, expected %d" % (f.fh.tell(), links_end))
 
-        content_start = f.fh.tell()
-        content_end = exp_total_bytes
+    content_start = f.fh.tell()
+    content_end = exp_total_bytes
 
+    if version >= 15:
         while f.fh.tell() < content_end:
             print("--- content [%d] ---" % f.fh.tell())
             type = f.read(1)
@@ -340,106 +409,6 @@ def parse_file(arg):
             raise ValueError("content section ended at %d, expected %d" % (f.fh.tell(), content_end))
 
     elif version == 12 or version == 13:
-        while f.fh.tell() < links_end:
-            print("--- links [%d] ---" % f.fh.tell())
-            type = f.read(1)
-            if version == 12:
-                if None:
-                    pass
-                elif type == b"\x00":
-                    f.read(1)
-                    n = f.read_byte()
-                    for j in range(n):
-                        f.read_string()
-                        f.read_string()
-                elif type == b"i":
-                    n = f.read_byte()
-                    boxes = []
-                    for j in range(n):
-                        pos = f.read_coords()
-                        size = f.read_coords()
-                        boxes.append((pos, size))
-                    img_type = f.read_string()
-                    img_url = f.read_url()
-                    print("image =", img_url)
-                elif type == b"C":
-                    f.read(24)
-                elif type == b"L":
-                    n = f.read_byte()
-                    f.read(2)
-                    boxes = []
-                    for j in range(n):
-                        pos = f.read_coords()
-                        size = f.read_coords()
-                        boxes.append((pos, size))
-                    link_url = f.read_url()
-                    print("link =", link_url)
-                elif type in {b"I", b"S", b"W"}:
-                    n = f.read_byte()
-                    boxes = []
-                    for j in range(n):
-                        pos = f.read_coords()
-                        size = f.read_coords()
-                        boxes.append((pos, size))
-                    f.read_chunk()
-                    f.read_chunk()
-                else:
-                    raise ValueError("in link section, unknown type %r" % type)
-            elif version == 13:
-                if None:
-                    pass
-                elif type == b"i":
-                    n = f.read_byte()
-                    boxes = []
-                    for j in range(n):
-                        pos = f.read_coords()
-                        size = f.read_coords()
-                        boxes.append((pos, size))
-                    img_url = f.read_url()
-                    f.read(2)
-                    img_type = f.read_string()
-                    for pos, size in boxes:
-                        yield {"_type": "image",
-                               "src": img_url,
-                               "type": img_type,
-                               "pos": pos,
-                               "size": size}
-                elif type == b"L":
-                    n = f.read_byte()
-                    boxes = []
-                    for j in range(n):
-                        pos = f.read_coords()
-                        size = f.read_coords()
-                        boxes.append((pos, size))
-                    link_url = f.read_url()
-                    f.read(2)
-                    link_type = f.read_string()
-                    for pos, size in boxes:
-                        yield {"_type": "link",
-                               "href": link_url,
-                               "type": link_type,
-                               "pos": pos,
-                               "size": size}
-                elif type == b"S":
-                    n = f.read_byte()
-                    boxes = []
-                    for j in range(n):
-                        pos = f.read_coords()
-                        size = f.read_coords()
-                        boxes.append((pos, size))
-                    f.read_chunk()
-                    f.read(2)
-                    f.read_chunk()
-                else:
-                    raise ValueError("in link section, unknown type %r" % type)
-
-        print("section 2 ends at %d" % f.fh.tell())
-        if f.fh.tell() != links_end:
-            raise ValueError("link section ended at %d, expected %d" % (f.fh.tell(), links_end))
-
-        content_start = f.fh.tell()
-        content_end = exp_total_bytes
-
         while f.fh.tell() < content_end:
             print("--- content [%d] ---" % f.fh.tell())
             type = f.read(1)
