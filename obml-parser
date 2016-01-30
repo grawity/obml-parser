@@ -460,6 +460,16 @@ for arg in sys.argv[1:]:
         fout.write('<!DOCTYPE html>\n')
         fout.write('<meta charset="utf-8">\n')
         fout.write('<style>\n'
+                   'html {\n'
+                   '  background: #ddd;\n'
+                   '}\n'
+                   '.item {\n'
+                   '  position: absolute;\n'
+                   '}\n'
+                   '.body {\n'
+                   '  background: white;\n'
+                   '  z-index: -200;\n'
+                   '}\n'
                    '.box {\n'
                    '  z-index: -100;\n'
                    '}\n'
@@ -478,9 +488,6 @@ for arg in sys.argv[1:]:
                    '  color: gray;\n'
                    '  z-index: 150;\n'
                    '}\n'
-                   '.item {\n'
-                   '  position: absolute;\n'
-                   '}\n'
                    '.text, .field {\n'
                    '  font-family: sans-serif;\n'
                    '  font-size: 11px;\n'
@@ -498,6 +505,15 @@ for arg in sys.argv[1:]:
             if type == "head":
                 fout.write('<!-- origin: %s -->\n' % item["url"])
                 fout.write('<title>%s</title>\n' % item["title"])
+                page_w, page_h = item["dimensions"]
+                style = [
+                    "left: %dpx" % 0,
+                    "top: %dpx" % 0,
+                    "width: %dpx" % page_w,
+                    "height: %dpx" % page_h,
+                ]
+                style = "; ".join(style)
+                fout.write('<div class="item body" style="%s"></div>' % style)
             elif type == "text":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
