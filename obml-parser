@@ -434,10 +434,15 @@ for arg in sys.argv[1:]:
                    '}\n'
                    '.link {\n'
                    '  display: block;\n'
+                   '  text-decoration: none;\n'
                    '  z-index: 100;\n'
                    '}\n'
                    '.link:hover {\n'
                    '  outline: 1px solid blue;\n'
+                   '}\n'
+                   '.imglink {\n'
+                   '  color: gray;\n'
+                   '  z-index: 150;\n'
                    '}\n'
                    '.item {\n'
                    '  position: absolute;\n'
@@ -492,14 +497,24 @@ for arg in sys.argv[1:]:
             elif type == "link":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
-                style = [
-                    "left: %dpx" % item_x,
-                    "top: %dpx" % item_y,
-                    "width: %dpx" % item_w,
-                    "height: %dpx" % item_h,
-                ]
+                if item.get("kind") == "image":
+                    klass = "link imglink"
+                    style = [
+                        "left: %dpx" % item_x,
+                        "top: %dpx" % item_y,
+                    ]
+                    text = "↖"
+                else:
+                    klass = "link"
+                    style = [
+                        "left: %dpx" % item_x,
+                        "top: %dpx" % item_y,
+                        "width: %dpx" % item_w,
+                        "height: %dpx" % item_h,
+                    ]
+                    text = ""
                 style = "; ".join(style)
-                fout.write('<a class="item link" href="%s" style="%s"></a>\n' % (item["href"], style))
+                fout.write('<a class="item %s" href="%s" style="%s">%s</a>\n' % (klass, item["href"], style, text))
             elif type == "file":
                 fout.write('<script>\n')
                 box_ids = imgboxes.get(item["addr"])
