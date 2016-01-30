@@ -41,14 +41,13 @@ In format version ≥ 15, "position" coordinates are stored as _relative_ to the
 
 The file starts with a `file_size: medium` followed by `version: byte`.
 
-For v≥15, *file_size* is always 0x02d355 and *version* is always 16; they're followed by a second identical header containing the real values. The reason for that is unknown.
+In v≥15, *file_size* is always 0x02d355 and *version* is always 16; they're followed by a second identical header containing the real values. The reason for that is unknown.
 
 Note that *file_size* only includes the bytes following it. It doesn't include the field's own size, nor the preceding fields.
 
-Following:
+Following is `page_size: coords`.
 
-  * In v16, `page_size: coords`, `unknown: short` (always 0xFFFF)
-  * In v≤15, `unknown: byte[10]`
+In v16, following is `unknown: short` (always 0xFFFF).
 
 Following are `page_title: string`, `unknown: blob`, `page_url_base: string`, and `page_url: url`. The unknown blob seems to always start with `C\x10\x10...` on v15, empty otherwise.
 
