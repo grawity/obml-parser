@@ -165,7 +165,7 @@ def parse_file(arg):
 
     page_size = f.read_coords()
     if version == 16:
-        assert(f.read(2) == b'\xff\xff')
+        assert(f.read(2) in {b'\x00\x00', b'\xff\xff'})
     else:
         assert(f.read(5) == b'S\x00\x00\xff\xff')
     page_title = f.read_string()
