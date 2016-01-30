@@ -208,6 +208,7 @@ def parse_file(arg):
                 f.read_string()
                 f.read_string()
         elif type == b"i":
+            # shared 'region' format
             n = f.read_byte()
             boxes = []
             for j in range(n):
@@ -232,6 +233,7 @@ def parse_file(arg):
                        "pos": pos,
                        "size": size}
         elif type in {b"L", b"P"}:
+            # shared 'region' format, except for "L"/v12
             n = f.read_byte()
             if version == 12:
                 f.read(2)
@@ -259,6 +261,7 @@ def parse_file(arg):
                            "pos": pos,
                            "size": size}
         elif type in {b"C", b"I", b"N", b"S", b"w", b"W"} and version >= 15:
+            # shared 'region' format
             n = f.read_byte()
             for j in range(n):
                 pos = f.read_coords()
@@ -267,6 +270,7 @@ def parse_file(arg):
             assert(f.read(2) == b"\x01t")
             f.read_chunk()
         elif type in {b"S"} and version == 13:
+            # shared 'region' format
             n = f.read_byte()
             for j in range(n):
                 pos = f.read_coords()
@@ -277,6 +281,7 @@ def parse_file(arg):
         elif type == b"C" and version == 12:
             f.read(24)
         elif type in {b"I", b"S", b"W"} and version == 12:
+            # shared 'region' format
             n = f.read_byte()
             for j in range(n):
                 pos = f.read_coords()
