@@ -243,10 +243,8 @@ def parse_file(arg):
                        "pos": pos,
                        "size": size}
         elif type in {b"L", b"P"}:
-            # shared 'region' format, except for "L"/v12
+            # shared 'region' format
             n = f.read_byte()
-            if version == 12:
-                f.read(2)
             boxes = []
             for j in range(n):
                 pos = f.read_coords()
@@ -261,8 +259,8 @@ def parse_file(arg):
                 f.read(2)
                 link_type = f.read_string()
             elif version == 12:
+                link_type = f.read_string()
                 link_url = f.read_url()
-                link_type = ""
             if not link_url.startswith("b:"):
                 for pos, size in boxes:
                     yield {"_type": "link",
