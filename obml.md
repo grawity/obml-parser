@@ -216,6 +216,10 @@ The following CSS results in an acceptable rendering:
     line-height: 1.1;
     white-space: pre;
 
+### Content: 'z' chunks
+
+Unknown. Rare. The only occurence seen contains `byte[6]`.
+
 ## Miscellaneous notes
 
 ### Forms
