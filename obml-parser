@@ -369,7 +369,7 @@ def parse_file(arg):
                 size = f.read_coords()
                 color = f.read_color()
                 addr = f.read_medium()
-                assert(f.read(2) == b"\x01c")
+                f.read(2)
                 assert(len(f.read_blob()) == 4)
             elif version == 15:
                 pos = f.read_coords(rel_to_abs=True)
