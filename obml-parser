@@ -130,11 +130,11 @@ def parse_file(arg):
     if version == 16:
         assert(expected_size == 0x02d355)
         expected_size = f.read_medium()
+        version = f.read_byte()
 
         exp_total_bytes = expected_size + 7
         exp_links_bytes = 0
 
-        version = f.read_byte()
         if version == 15:
             f.read(10)
         elif version == 16:
@@ -144,8 +144,7 @@ def parse_file(arg):
 
         page_title = f.read_string()
         f.read_chunk() # nil on v16, 'C\x10\x10...' on v15
-        page_urlbase = f.read_string()
-        f.url_base = page_urlbase
+        f.url_base = f.read_string()
         page_url = f.read_url()
         print("title =", page_title)
         print("url =", page_url)
@@ -365,8 +364,8 @@ def parse_file(arg):
                     pass
                 elif type == b"\x00":
                     f.read(1)
-                    nk = f.read_byte()
-                    for k in range(nk):
+                    n = f.read_byte()
+                    for j in range(n):
                         f.read_string()
                         f.read_string()
                 elif type == b"i":
