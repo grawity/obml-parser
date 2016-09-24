@@ -2,7 +2,7 @@
 # A barebones parser for OBML files used by Opera Mini
 #
 # (c) 2014–2016 Mantas Mikulėnas <grawity@gmail.com>
-# Released under the MIT Expat License
+# Released under the MIT License
 #
 # Originally intended to extract original URLs from saved pages, after Opera dropped
 # binary compatibilty between minor releases and left me with a bunch of unreadable
