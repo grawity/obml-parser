@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # A barebones parser for OBML files used by Opera Mini
 #
 # (c) 2014–2016 Mantas Mikulėnas <grawity@gmail.com>
