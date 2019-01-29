@@ -11,8 +11,8 @@ Most saved pages use OBML v12, v13, v15, or v16; I haven't investigated the form
 OBML uses these primitive types:
 
  * byte – unsigned integer (1 byte)
- * short – unsigned integer (2 bytes, big-endian)
- * medium – unsigned integer (3 bytes, big-endian)
+ * short – signed integer (2 bytes, big-endian)
+ * medium – signed integer (3 bytes, big-endian)
  * blob – consists of a _short_ indicating the length, followed by that many bytes of data
  * char – a _byte_ containing an ASCII character
  * string – a _blob_ containing UTF-8 encoded text
@@ -29,13 +29,13 @@ Colors are stored as ARGB tuples, with one byte (0–255) per component.
 
 ### coords ← (x: short, y: medium)
 
-Coordinates are stored as a _short_ for the X position (0–65535) followed by a _medium_ for the Y position (0–16777215). The origin (0, 0) is in the top-left corner.
+Coordinates are stored as a _short_ for the X position followed by a _medium_ for the Y position. The origin (0, 0) is in the top-left corner.
 
-In format versions ≤ 13, "position" coordinates are absolute and stored as-is.
+In format versions ≤ 13, all coordinates are absolute.
 
-In format version ≥ 15, "position" coordinates are stored as _relative_ to the last position coordinate. Relative coordinates wrap around, thus negative offsets are stored as very large positive coordinates. For example, (-4, -2) is stored as (0xFFFC, 0xFFFFFE).
+In format version ≥ 15, "size/dimension" coordinates are absolute, but "position" coordinates are relative to the previous position coordinate and may be negative.
 
-(Note that positions are relative only to the last position – absolute coordinates like sizes do not affect the relative offset in any way.)
+(Note that _only_ relative coordinates update the "last position" state. Sizes/dimensions are always stored as absolute coordinates and do not affect relative coordinates.)
 
 ## Header
 
@@ -49,7 +49,7 @@ Following is `page_size: coords`.
 
 In v16, following is `unknown: bytes[3]` (always `S\x00\x00`).
 
-Following is `unknown: short` (always 0xFFFF).
+Following is `unknown: short` (always -1 `\xFF\xFF`).
 
 Following are `page_title: string`, `unknown: blob`, `page_url_base: string`, and `page_url: url`. The unknown blob seems to always start with `C\x10\x10...` on v15, empty otherwise.
 
