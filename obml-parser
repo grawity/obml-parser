@@ -455,7 +455,7 @@ font_sizes = {
 }
 
 for arg in sys.argv[1:]:
-    with open("%s.html" % arg, "w") as fout:
+    with open("%s.html" % arg, "w", encoding="utf-8") as fout:
         id_alloc = iter(infinity())
         imgboxes = {}
         option_lists = {}
