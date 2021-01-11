@@ -19,6 +19,15 @@ import urllib.parse
 
 from pprint import pprint
 
+font_sizes = {
+    0: "11px", # medium (default)
+    2: "12px", # large
+    4: "13px", # extra large
+    6: "10px", # small
+}
+
+line_height = "1.1"
+
 class BinaryReader():
     def __init__(self, path):
         self.path = path
@@ -467,13 +476,6 @@ def parse_file(arg):
     if f.tell() != content_end:
         raise ValueError("content section ended at %d, expected %d" % (f.tell(), content_end))
 
-font_sizes = {
-    0: "11px", # medium
-    2: "12px", # large
-    4: "13px", # extra large
-    6: "10px", # small
-}
-
 for arg in sys.argv[1:]:
     with open("%s.html" % arg, "w", encoding="utf-8") as fout:
         id_alloc = iter(infinity())
@@ -517,15 +519,15 @@ for arg in sys.argv[1:]:
                    '}\n'
                    '.text, .field {\n'
                    '  font-family: sans-serif;\n'
-                   '  font-size: 11px;\n'
-                   '  line-height: 1.1;\n'
+                   '  font-size: %s;\n'
+                   '  line-height: %s;\n'
                    '  white-space: pre;\n'
                    '}\n'
                    '.form {\n'
                    '  border: none;\n'
                    '  padding: none;\n'
                    '}\n'
-                   '</style>\n')
+                   '</style>\n' % (font_sizes[0], line_height))
         for item in parse_file(arg):
             type = item["_type"]
             #pprint(item)
