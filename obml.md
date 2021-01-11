@@ -53,7 +53,7 @@ Following is `unknown: short` (always -1 `\xFF\xFF`).
 
 Following are `page_title: string`, `unknown: blob`, `page_url_base: string`, and `page_url: url`. The unknown blob seems to always start with `C\x10\x10...` on v15, empty otherwise.
 
-Following is an unknown header (6 bytes for v≥15, 5 bytes for v≤13).
+Following is an unknown header (6 bytes for v≥15, 5 bytes for v≤13, 1 byte for v6).
 
  - In v13, the format appears to be `counter: short`, `unknown: medium`.
 
@@ -170,6 +170,8 @@ In v≤13, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `unknown: 
 *fill* is the image's average color, for use as placeholder when images are disabled/loading.
 
 *file_addr* is the byte offset within the 'S'-chunk, relative to the end of *data_size*.
+
+In v6, *file_addr* is relative to the end of *version* field in the initial header (i.e. offset is always 3).
 
 ### Content: 'L' chunks
 
