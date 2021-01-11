@@ -36,6 +36,9 @@ class BinaryReader():
 
     # primitives
 
+    def tell(self):
+        return self.fh.tell()
+
     def read(self, length):
         buf = self.fh.read(length)
         if len(buf) < length:
@@ -147,7 +150,7 @@ def parse_file(arg):
     f = BinaryReader(arg)
 
     expected_size = f.read_medium()
-    total_start = f.fh.tell()
+    total_start = f.tell()
     version = f.read_byte()
     print("version =", version)
 
@@ -191,7 +194,7 @@ def parse_file(arg):
     # metadata section
 
     while True:
-        print("--- metadata [%d] ---" % f.fh.tell())
+        print("--- metadata [%d] ---" % f.tell())
         type = f.read(1)
         if None:
             pass
@@ -209,15 +212,15 @@ def parse_file(arg):
         else:
             raise ValueError("unknown metadata chunk %r" % type)
 
-    print("section 1 ends at %d" % f.fh.tell())
+    print("section 1 ends at %d" % f.tell())
 
     # link sub-section
 
-    links_start = f.fh.tell()
-    links_end = f.fh.tell() + exp_links_bytes
+    links_start = f.tell()
+    links_end = f.tell() + exp_links_bytes
 
-    while f.fh.tell() < links_end:
-        print("--- links [%d] ---" % f.fh.tell())
+    while f.tell() < links_end:
+        print("--- links [%d] ---" % f.tell())
         type = f.read(1)
         if None:
             pass
@@ -310,17 +313,17 @@ def parse_file(arg):
         else:
             raise ValueError("unknown link chunk %r/v%r" % (type, version))
 
-    print("section 2 ends at %d" % f.fh.tell())
-    if f.fh.tell() != links_end:
-        raise ValueError("link section ended at %d, expected %d" % (f.fh.tell(), links_end))
+    print("section 2 ends at %d" % f.tell())
+    if f.tell() != links_end:
+        raise ValueError("link section ended at %d, expected %d" % (f.tell(), links_end))
 
     # content section
 
-    content_start = f.fh.tell()
+    content_start = f.tell()
     content_end = exp_total_bytes
 
-    while f.fh.tell() < content_end:
-        print("--- content [%d] ---" % f.fh.tell())
+    while f.tell() < content_end:
+        print("--- content [%d] ---" % f.tell())
         type = f.read(1)
         if None:
             pass
@@ -409,20 +412,20 @@ def parse_file(arg):
             f.read_blob()
         elif type == b"S":
             exp_files_bytes = f.read_medium()
-            files_start = f.fh.tell()
-            files_end = f.fh.tell() + exp_files_bytes
-            while f.fh.tell() < files_end:
+            files_start = f.tell()
+            files_end = f.tell() + exp_files_bytes
+            while f.tell() < files_end:
                 if version == 6:
-                    addr = f.fh.tell() - total_start
+                    addr = f.tell() - total_start
                 else:
-                    addr = f.fh.tell() - files_start
+                    addr = f.tell() - files_start
                 buf = f.read_blob()
                 yield {"_type": "file",
                        "addr": addr,
                        "data": buf}
-            print("files started at %d, ends at %d" % (files_start, f.fh.tell()))
-            if f.fh.tell() != files_end:
-                raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
+            print("files started at %d, ends at %d" % (files_start, f.tell()))
+            if f.tell() != files_end:
+                raise ValueError("content.files section ended at %d, expected %d" % (f.tell(), files_end))
         elif type == b"T":
             if version == 16:
                 pos = f.read_coords(rel_to_abs=True)
@@ -460,9 +463,9 @@ def parse_file(arg):
         else:
             raise ValueError("unknown content chunk %r/v%r" % (type, version))
 
-    print("section 3 started at %d, ends at %d" % (content_start, f.fh.tell()))
-    if f.fh.tell() != content_end:
-        raise ValueError("content section ended at %d, expected %d" % (f.fh.tell(), content_end))
+    print("section 3 started at %d, ends at %d" % (content_start, f.tell()))
+    if f.tell() != content_end:
+        raise ValueError("content section ended at %d, expected %d" % (f.tell(), content_end))
 
 font_sizes = {
     0: "11px", # medium
