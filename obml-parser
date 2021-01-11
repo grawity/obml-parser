@@ -147,6 +147,7 @@ def parse_file(arg):
     f = Parser(arg)
 
     expected_size = f.read_medium()
+    total_start = f.fh.tell()
     version = f.read_byte()
     print("version =", version)
 
@@ -412,7 +413,7 @@ def parse_file(arg):
             files_end = f.fh.tell() + exp_files_bytes
             while f.fh.tell() < files_end:
                 if version == 6:
-                    addr = f.fh.tell() - 3
+                    addr = f.fh.tell() - total_start
                 else:
                     addr = f.fh.tell() - files_start
                 buf = f.read_blob()
