@@ -19,7 +19,7 @@ import urllib.parse
 
 from pprint import pprint
 
-class Parser():
+class BinaryReader():
     def __init__(self, path):
         self.path = path
         self.fh = open(path, 'rb')
@@ -144,7 +144,7 @@ def css_imgdata(buf):
 def parse_file(arg):
     print("file =", arg)
 
-    f = Parser(arg)
+    f = BinaryReader(arg)
 
     expected_size = f.read_medium()
     total_start = f.fh.tell()
