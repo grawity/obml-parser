@@ -477,7 +477,8 @@ font_sizes = {
 for arg in sys.argv[1:]:
     with open("%s.html" % arg, "w", encoding="utf-8") as fout:
         id_alloc = iter(infinity())
-        imgboxes = {}
+        boxes_by_fileaddr = {}
+        empty_boxes = set()
         option_lists = {}
         n_option_lists = iter(infinity())
         n_select_fields = iter(infinity())
@@ -527,7 +528,7 @@ for arg in sys.argv[1:]:
                    '</style>\n')
         for item in parse_file(arg):
             type = item["_type"]
-            pprint(item)
+            #pprint(item)
             if type == "head":
                 fout.write('<!-- origin: %s -->\n' % item["url"])
                 fout.write('<title>%s</title>\n' % item["title"])
@@ -572,7 +573,8 @@ for arg in sys.argv[1:]:
                 if item.get("kind") == "image":
                     box_id = "imgbox_%d" % next(id_alloc)
                     fout.write('<div class="item img" style="%s" id="%s"></div>\n' % (style, box_id))
-                    imgboxes.setdefault(item["blob"], []).append(box_id)
+                    empty_boxes.add(box_id)
+                    boxes_by_fileaddr.setdefault(item["blob"], []).append(box_id)
                 else:
                     fout.write('<div class="item box" style="%s"></div>\n' % style)
             elif type == "option_list":
@@ -624,11 +626,17 @@ for arg in sys.argv[1:]:
                 fout.write('<a class="item %s" href="%s" style="%s">%s</a>\n' % (klass, item["href"], style, text))
             elif type == "file":
                 fout.write('<script>\n')
-                box_ids = imgboxes.get(item["addr"])
+                box_ids = boxes_by_fileaddr.get(item["addr"])
                 if box_ids:
                     fout.write('var bg = "%s";\n' % css_imgdata(item["data"]))
                     for box_id in box_ids:
+                        empty_boxes.remove(box_id)
                         fout.write('var div = document.getElementById("%s");\n' % box_id)
                         fout.write('div.style.backgroundImage = bg;\n')
                         fout.write('div.style.backgroundColor = "";\n')
+                else:
+                    fout.write('/* file @ %r not referenced by any image */\n' % item["addr"])
+                    print("warning: file @ %r was not referenced by any image" % item["addr"], file=sys.stderr)
                 fout.write('</script>\n')
+        for box_id in sorted(empty_boxes):
+            print("warning: image box %r is missing a file" % box_id, file=sys.stderr)
