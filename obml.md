@@ -105,12 +105,12 @@ chunk := {
 
 ### Metadata: 'C' chunks
 
+Only seen in v≥15:
+
 ```
 C_chunk := {
 	type: char = 'C'
-	(if version >= 15) {
-		unknown: byte[23]
-	}
+	unknown: byte[23]
 }
 ```
 
@@ -132,7 +132,7 @@ M_chunk := {
 Secure connection (TLS) information.
 
 ```
-M_S_chunk := {
+M_tls_chunk := {
 	type: char = 'M'
 	subtype: char = 'S'
 	// This might be inaccurate
