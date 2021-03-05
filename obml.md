@@ -6,78 +6,156 @@ Over time, various OBML versions were used, and each Opera Mini version is only 
 
 Most saved pages use OBML v12, v13, v15, or v16; I haven't investigated the format used by earlier "modded" Opera Mini versions which had this feature added unofficially.
 
-## Basic data types
+## Data types
 
 OBML uses these primitive types:
 
  * byte – unsigned integer (1 byte)
  * short – signed integer (2 bytes, big-endian)
  * medium – signed integer (3 bytes, big-endian)
- * blob – consists of a _short_ indicating the length, followed by that many bytes of data
+ * blob – `{ length: short, data: byte[length] }`
  * char – a _byte_ containing an ASCII character
  * string – a _blob_ containing UTF-8 encoded text
 
-## Other data types
+It also has a few more complex types:
 
-### url ← string
+### url
+
+```
+url := string
+```
 
 Each OBML file has a "base URL", essentially a reusable prefix. When other URLs start with a null byte, it is to be replaced with the global prefix. For example, if the base is `http://example.com/dir` and you have an URL value `\x00/index.html`, it expands to `http://example.com/dir/index.html`.
 
-### color ← (a: byte, r: byte, g: byte, b: byte)
+### color
+
+```
+color := { a: byte, r: byte, g: byte, b: byte }
+```
 
 Colors are stored as ARGB tuples, with one byte (0–255) per component.
 
-### coords ← (x: short, y: medium)
+### coords
+
+```
+coords := { x: short, y: medium }
+```
 
 Coordinates are stored as a _short_ for the X position followed by a _medium_ for the Y position. The origin (0, 0) is in the top-left corner.
 
 In format versions ≤ 13, all coordinates are absolute.
 
-In format version ≥ 15, "size/dimension" coordinates are absolute, but "position" coordinates are relative to the previous position coordinate and may be negative.
+In format version ≥ 15, "size/dimension" coordinates are absolute, but "position" coordinates are relative to the previous position coordinate and may be negative. Those will be indicated as `coords(relative)`.
 
 (Note that _only_ relative coordinates update the "last position" state. Sizes/dimensions are always stored as absolute coordinates and do not affect relative coordinates.)
 
 ## Header
 
-The file starts with a `file_size: medium` followed by `version: byte`.
+The file starts with:
 
-In v≥15, *file_size* is always 0x02d355 and *version* is always 16; they're followed by a second identical header containing the real values. The reason for that is unknown.
+```
+header := {
+	(if version >= 15) {
+		fake_file_size: medium = 0x02d355
+		fake_version: byte     = 16
+	}
+	file_size: medium
+	version: byte
+	page_size: coords
+	(if version == 16) {
+		unknown: byte[3]      // always S\x00\x00
+	}
+	unknown: short                // always -1
+	page_title: string
+	unknown: blob
+	page_url_base: string
+	page_url: url
+	(if version >= 15) {
+		unknown: byte[6]
+	}
+	(if 6 < version <= 13) {
+		unknown: byte[5]
+	}
+	(if version == 6) {
+		unknown: byte[1]
+	}
+	metadata: chunk[]
+	content: chunk[]
+}
+
+In v≥15, the initial *file_size* is always 0x02d355 and *version* is always 16; they're followed by a second identical header containing the real values. The reason for that is unknown.
 
 Note that *file_size* only includes the bytes following it. It doesn't include the field's own size, nor the preceding fields.
 
-Following is `page_size: coords`.
+The unknown blob seems to always start with `C\x10\x10...` on v15, empty otherwise.
 
-In v16, following is `unknown: bytes[3]` (always `S\x00\x00`).
-
-Following is `unknown: short` (always -1 `\xFF\xFF`).
-
-Following are `page_title: string`, `unknown: blob`, `page_url_base: string`, and `page_url: url`. The unknown blob seems to always start with `C\x10\x10...` on v15, empty otherwise.
-
-Following is an unknown header (6 bytes for v≥15, 5 bytes for v≤13, 1 byte for v6).
-
- - In v13, the format appears to be `counter: short`, `unknown: medium`.
-
-Following is the "metadata" section and the "content" section, both composed of tagged chunks.
+The header is then followed by the "metadata" section and the "content" section, both composed of tagged chunks.
 
 ## Metadata section
 
 This section consists of several chunks. Each chunk starts with `type: char` (an ASCII letter), followed by variable amount of fields.
 
+```
+chunk := {
+	type: char
+	...
+}
+```
+
 ### Metadata: 'C' chunks
 
-In v≥15, always contain `byte[23]` of unknown data.
+```
+C_chunk := {
+	(if version >= 15) {
+		unknown: byte[23]
+	}
+}
+```
 
 ### Metadata: 'M' chunks
 
-Always contain `subtype: char`, `unknown: byte` (always 0x00), `data: blob`.
+Appears to be extensible metadata fields which contain further subtypes.
+
+```
+M_chunk := {
+	type: char = 'M'
+	subtype: char
+	unknown: byte[1]  // always 0x00
+	data: blob
+}
+```
 
 #### 'S' sub-type
 
-Secure connection (TLS) information. Contains `byte[6]`, `cert_expiry: string`, `secure_status: string`, `tls_details: string`, `cert_common_name: string`.
+Secure connection (TLS) information.
+
+```
+M_S_chunk := {
+	type: char = 'M'
+	subtype: char = 'S'
+	// This might be inaccurate
+	unknown: byte[1]
+	data: blob containing {
+		unknown: byte[6]
+		cert_expiry: string
+		secure_status: string
+		tls_details: string
+		cert_common_name: string
+	}
+}
+```
 
 ### Metadata: 'S' chunks
 
-Appear to contain `links_size: medium` followed by a "links" sub-section of that size.
+Contains information about hyperlinks on the page.
+
+```
+S_chunk := {
+	type: char = 'S'
+	links_size: medium
+	links: byte[link_size] // sub-section containing its own chunks
+}
+```
 
 ## Links sub-section
 
@@ -85,17 +163,49 @@ This section consists of chunks and appears to be a sub-section of the preceding
 
 ### Links: '\x00' chunks
 
-Always contain `unknown: byte` and `count: byte`, followed by that many `(id: string, label: string)` pairs. Each of these chunks seems to store the `<option>` choices for a HTML `<select>` widget.
+Each of these chunks seems to store the `<option>` choices for a HTML `<select>` widget.
+
+```
+links_null_chunk := {
+	type: byte = 0x00
+	unknown: byte
+	count: byte
+	choices: array[count] of { id: string, label: string }
+}
+```
 
 ### Links: all region chunks
 
 Most other chunks in this sub-section define 'regions' and share the same data format.
 
-In v≥15 the format is `box_count: byte`, followed by that many `(pos: coords[rel], size: coords)` coordinate pairs, followed by `link_target: blob`, `unknown: byte[2]` (always `\x01\x74`), `link_type: blob`.
+```
+links_region_chunk := {
+	type: byte
+	box_count: byte
+	box_coords: array[box_count] of rectangle
+	(if version >= 15) {
+		link_target: blob
+		unknown: byte[2] // always \x01\x74
+		link_type: blob
+	}
+	(if version == 13) {
+		link_target: blob
+		unknown: byte[2]
+		link_type: blob
+	}
+	(if version <= 12) {
+		link_type: blob
+		link_target: blob
+	}
+}
+```
 
-In v13 the format is `box_count: byte`, followed by that many `(pos: coords, size: coords)` coordinate pairs, followed by `link_target: blob`, `unknown: byte[2]`, `link_type: blob`.
-
-In v12 the format is `box_count: byte`, followed by that many `(pos: coords, size: coords)` pairs, followed by `link_type: blob`, `link_target: blob`.
+```
+rectangle := {
+	(if version >= 15) { pos: coords(relative), size: coords }
+	(if version <= 13) { pos: coords, size: coords }
+}
+```
 
 `link_type`, if non-empty, seems to be a _string_ with the MIME type.
 
@@ -137,19 +247,45 @@ Link region similar to 'w' but meant to open the target in platform's native web
 
 Define a filled rectangle (a "box"); used to draw background colors, borders, other lines (including even link underlines).
 
-In v≥15, contain `pos: coords[rel]`, `size: coords`, `fill: color`.
-
-In v≤13, contain `pos: coords`, `size: coords`, `fill: color`.
+```
+B_chunk := {
+	type: byte = 'B'
+	(if version >= 15) {
+		pos: coords(relative)
+		size: coords
+	}
+	(if version <= 13) {
+		pos: coords
+		size: coords
+	}
+	fill: color
+}
+```
 
 ### Content: 'F' chunks
 
 Form fields.
 
-In v≥15, contain `pos: coords[rel]`, `size: coords`, `foreground: color`, `type: byte[2]`, `field_id: string`, `value: string`, `byte[5]`.
+```
+F_chunk := {
+	type: byte = 'F'
+	pos: coords(relative)
+	size: coords
+	foreground: color
+	field_type: byte
+	unknown: byte
+	field_id: string
+	field_value: string
+	(if version >= 15) {
+		unknown: byte[5]
+	}
+	(if version <= 13) {
+		unknown: byte[3]
+	}
+}
+```
 
-In v≤13, contain `pos: coords[rel]`, `size: coords`, `foreground: color`, `type: byte[2]`, `field_id: string`, `value: string`, `byte[3]`.
-
-Types:
+Field types:
 
  - `a` is a multi-line input box (textarea)
  - `c` is a checkbox
@@ -161,11 +297,25 @@ Types:
 
 Image.
 
-In v16, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `file_addr: medium`, `unknown: byte[11]`.
-
-In v15, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `unknown: byte[14]`.
-
-In v≤13, contain `pos: coords[rel]`, `size: coords`, `fill: color`, `unknown: byte[3]`, `file_addr: medium`.
+```
+I_chunk := {
+	type: byte = 'I'
+	pos: coords(relative)
+	size: coords
+	fill: color
+	(if version == 16) {
+		file_addr: medium
+		unknown: byte[11]
+	}
+	(if version == 15) {
+		unknown: byte[14]
+	}
+	(if version <= 13) {
+		unknown: byte[3]
+		file_addr: medium
+	}
+}
+```
 
 *fill* is the image's average color, for use as placeholder when images are disabled/loading.
 
@@ -175,11 +325,22 @@ In v6, *file_addr* is relative to the end of *version* field in the initial head
 
 ### Content: 'L' chunks
 
-Unknown. Contain `byte[9]` with unknown data.
+```
+L_chunk := {
+	type: byte = 'L'
+	unknown: byte[9]
+}
+```
 
 ### Content: 'M' chunks
 
-Unknown. Contain `byte[2]`, `blob` with unknown data.
+```
+M_chunk := {
+	type: byte = 'M'
+	unknown: byte[2]
+	unknown: blob
+}
+```
 
 ### Content: 'o' chunks
 
@@ -191,7 +352,15 @@ Contain `blob` with unknown data.
 
 Embedded images.
 
-Contain `data_size: medium`, followed by some number of `file_data: blob`. (The blob count isn't given, so keep reading blobs until you've consumed at least *data_size* bytes.)
+```
+S_chunk := {
+	type: byte = 'S'
+	data_size: medium
+	file_data: blob[]
+}
+```
+
+The blob count isn't given, so keep reading blobs until you've consumed at least *data_size* bytes.
 
 Each blob contains an image (PNG or JPEG) to be drawn in all 'I'-chunks whose *file_addr* matches the blob's offset relative to the end of *data_size*.
 
@@ -199,11 +368,32 @@ Each blob contains an image (PNG or JPEG) to be drawn in all 'I'-chunks whose *f
 
 Text.
 
-In v16, contain `pos: coords[rel]`, `size: coords`, `foreground: color`, `unknown: byte`, `font: byte`, `unknown_count: byte`, *unknown_count* × `(byte, blob)` pairs, `text: string`. (It seems that the unknown pairs define some sort of links.)
+```
+T_chunk := {
+	type: byte = 'T'
+	(if version >= 15) {
+		pos: coords(relative)
+		size: coords
+	}
+	(if version <= 13) {
+		pos: coords
+		size: coords
+	}
+	foreground: color
+	(if version == 16) {
+		unknown: byte
+		font: byte
+		probably_link_count: byte
+		probably_links: array [probably_link_count] of { unknown: byte, unknown: blob }
+	}
+	(if version <= 15) {
+		font: byte
+	}
+	text: string
+}
+```
 
-In v15, contain `pos: coords[rel]`, `size: coords`, `foreground: color`, `font: byte`, `text: string`.
-
-In v≤13, contain `pos: coords`, `size: coords`, `foreground: color`, `font: byte`, `text: string`.
+In v16, it seems that the unknown pairs define some sort of links.
 
 In *font*, the least-significant bit indicates bold text. With the 'bold' bit masked out, the remaining value indicates the font size:
 
