@@ -82,6 +82,7 @@ header := {
 	metadata: chunk[]
 	content: chunk[]
 }
+```
 
 In v≥15, the initial *file_size* is always 0x02d355 and *version* is always 16; they're followed by a second identical header containing the real values. The reason for that is unknown.
 
