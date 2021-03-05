@@ -107,6 +107,7 @@ chunk := {
 
 ```
 C_chunk := {
+	type: char = 'C'
 	(if version >= 15) {
 		unknown: byte[23]
 	}
