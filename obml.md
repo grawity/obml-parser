@@ -168,7 +168,7 @@ Each of these chunks seems to store the `<option>` choices for a HTML `<select>`
 
 ```
 links_null_chunk := {
-	type: byte = 0x00
+	type: char = 0x00
 	unknown: byte
 	count: byte
 	choices: array[count] of { id: string, label: string }
@@ -181,7 +181,7 @@ Most other chunks in this sub-section define 'regions' and share the same data f
 
 ```
 links_region_chunk := {
-	type: byte
+	type: char
 	box_count: byte
 	box_coords: array[box_count] of rectangle
 	(if version >= 15) {
@@ -250,7 +250,7 @@ Define a filled rectangle (a "box"); used to draw background colors, borders, ot
 
 ```
 B_chunk := {
-	type: byte = 'B'
+	type: char = 'B'
 	(if version >= 15) {
 		pos: coords(relative)
 		size: coords
@@ -269,11 +269,11 @@ Form fields.
 
 ```
 F_chunk := {
-	type: byte = 'F'
+	type: char = 'F'
 	pos: coords(relative)
 	size: coords
 	foreground: color
-	field_type: byte
+	field_type: char
 	unknown: byte
 	field_id: string
 	field_value: string
@@ -300,7 +300,7 @@ Image.
 
 ```
 I_chunk := {
-	type: byte = 'I'
+	type: char = 'I'
 	pos: coords(relative)
 	size: coords
 	fill: color
@@ -328,7 +328,7 @@ In v6, *file_addr* is relative to the end of *version* field in the initial head
 
 ```
 L_chunk := {
-	type: byte = 'L'
+	type: char = 'L'
 	unknown: byte[9]
 }
 ```
@@ -337,7 +337,7 @@ L_chunk := {
 
 ```
 M_chunk := {
-	type: byte = 'M'
+	type: char = 'M'
 	unknown: byte[2]
 	unknown: blob
 }
@@ -355,7 +355,7 @@ Embedded images.
 
 ```
 S_chunk := {
-	type: byte = 'S'
+	type: char = 'S'
 	data_size: medium
 	file_data: blob[]
 }
@@ -371,7 +371,7 @@ Text.
 
 ```
 T_chunk := {
-	type: byte = 'T'
+	type: char = 'T'
 	(if version >= 15) {
 		pos: coords(relative)
 		size: coords
