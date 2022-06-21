@@ -448,25 +448,26 @@ def parse_file(arg):
                 size = f.read_coords()
                 color = f.read_color()
                 addr = f.read_medium()
-                _x1 = f.read(2);        #assert(_x1 == b'\x02c') # 263?
-                _x2 = f.read_blob();    assert(len(_x2) == 4)
-                _x3 = f.read(1);        assert(_x3 == b'o')
-                _x4 = f.read_blob();    assert(_x4 == b'\x00\x00\x00\x00')
-                print("Ignoring unknown fields:", repr(type), repr(_x1), repr(_x2), repr(_x3), repr(_x4))
+                n = f.read_byte()       # Seems to always be 1 or 2
+                for j in range(n):
+                    x1 = f.read(1)      # Seems to always be 'c' first, 'o' second (if present)
+                    x2 = f.read_blob()  # Seems to be 4-byte, unknown for 'c', all-zero for 'o'
+                    #print("Ignoring unknown image fields:", repr(x1), repr(x2))
             elif version == 15:
                 pos = f.read_coords(rel_to_abs=True)
                 size = f.read_coords()
                 color = f.read_color()
                 _x = f.read(14)
-                print("Ignoring unknown fields:", repr(type), repr(_x))
+                print("Ignoring unknown image fields:", repr(type), repr(_x))
                 # XXX: 'addr' is missing in v15!
+                # The format is probably the same as v16 though.
                 raise Exception("XXX: v15 'I'-chunk parsing is incomplete (address is missing)!")
             else:
                 pos = f.read_coords()
                 size = f.read_coords()
                 color = f.read_color()
-                _x = f.read(3) # medium_int?
-                #print("Ignoring unknown fields:", repr(type), repr(_x))
+                _x = f.read(3) # medium_int (usually 0, 2, 4)
+                #print("Ignoring unknown image fields:", repr(type), repr(_x))
                 addr = f.read_medium()
             yield {"_type": "box",
                    "kind": "image",
@@ -509,9 +510,11 @@ def parse_file(arg):
                 color = f.read_color()
                 f.read(1)
                 font = 4 | (f.read_byte() & 1)
-                n = f.read_byte()
+                n = f.read_byte()       # Might be 0 or 1
                 for j in range(n):
-                    print("text link", f.read(1), f.read_blob())
+                    x1 = f.read(1)      # Seems to always contain 'c'
+                    x2 = f.read_blob()  # Seems to contain 1 short, sometimes negative
+                    print("Ignoring unknown text fields:", repr(x1), repr(x2))
                 text = f.read_string()
             elif version == 15:
                 pos = f.read_coords(rel_to_abs=True)
