@@ -452,18 +452,23 @@ def parse_file(arg):
                 size = f.read_coords()
                 color = f.read_color()
                 addr = f.read_medium()
-                f.read(2)
-                assert(len(f.read_blob()) == 4)
+                _x1 = f.read(2)
+                _x2 = f.read_blob(); assert(len(_x2)) == 4
+                print("Ignoring unknown fields:", repr(type), repr(_x1), repr(_x2))
             elif version == 15:
                 pos = f.read_coords(rel_to_abs=True)
                 size = f.read_coords()
                 color = f.read_color()
-                f.read(14)
+                _x = f.read(14)
+                print("Ignoring unknown fields:", repr(type), repr(_x))
+                # XXX: 'addr' is missing in v15!
+                raise Exception("XXX: v15 'I'-chunk parsing is incomplete (address is missing)!")
             else:
                 pos = f.read_coords()
                 size = f.read_coords()
                 color = f.read_color()
-                f.read(3)
+                _x = f.read(3) # medium_int?
+                print("Ignoring unknown fields:", repr(type), repr(_x))
                 addr = f.read_medium()
             yield {"_type": "box",
                    "kind": "image",
