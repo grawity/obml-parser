@@ -12,6 +12,7 @@
 #   https://gist.github.com/grawity/702b31cddcc5a6622724
 
 import base64
+import io
 import os
 import struct
 import sys
@@ -29,8 +30,8 @@ font_sizes = {
 line_height = "1.1"
 
 class BinaryReader():
-    def __init__(self, path):
-        self.fh = open(path, 'rb')
+    def __init__(self, fh):
+        self.fh = fh
         self.url_base = "\0"
         self.last_x = 0
         self.last_y = 0
@@ -41,6 +42,14 @@ class BinaryReader():
             c_off = "\033[m" if sys.stdout.isatty() else ""
             print(c_on, "#", typ, repr(data), c_off)
         return data
+
+    @classmethod
+    def from_path(self, path):
+        return self(open(path, "rb"))
+
+    @classmethod
+    def from_bytes(self, buf):
+        return self(io.BytesIO(buf))
 
     # primitives
 
@@ -155,7 +164,7 @@ def css_imgdata(buf):
 def parse_file(arg):
     print("file =", arg)
 
-    f = BinaryReader(arg)
+    f = BinaryReader.from_path(arg)
 
     expected_size = f.read_medium()
     total_start = f.tell()
