@@ -229,7 +229,8 @@ def parse_file(arg):
             x2 = f.read_blob()
             print("Ignoring unknown chunk:", repr(type), repr(x1), repr(x2))
         elif type == b"S":
-            # Links sub-section.
+            # Embedded link target data. Might be meant as a "skip" marker,
+            # with a later "L"-chunk referencing the data stored here.
             exp_links_bytes = f.read_medium()
             break
         else:
@@ -239,16 +240,13 @@ def parse_file(arg):
 
     # link sub-section
     #
-    # I think this is technically still a single b"S" chunk containing nested
-    # link chunks, but it's easier to parse it separately because it conflicts
-    # with a later use of b"S" chunks to contain image payloads.
+    # This is *not* the same types as toplevel metadata/content chunks (e.g.
+    # the "C" and "L" definitions conflict).
     #
-    # (There is a possibility that *this* is also just a "binary payload"
-    # chunk, just like for images, but for that to work there would need to be
-    # something else pointing at this section -- and I haven't found that yet.)
+    # Instead, it should perhaps be handled as part of the "S"-chunk, just like
+    # it is done for embedded image data later in the content section.
     #
-    # In any case, link chunks definitely seem to be distinct from top-level
-    # chunks as they conflict in the b"C" type.
+    # The content "L"-chunk appears to point back to this subsection.
 
     links_start = f.tell()
     links_end = f.tell() + exp_links_bytes
@@ -385,7 +383,8 @@ def parse_file(arg):
     #
     # If we move link chunk handling to a nested parser, then there's a
     # possibility for content & metadata to be merged into a single toplevel
-    # parser.
+    # parser... assuming I figure out the correct way to distinguish the two
+    # "S"-chunks.
 
     content_start = f.tell()
     content_end = exp_total_bytes
@@ -495,7 +494,9 @@ def parse_file(arg):
             x2 = f.read_blob()
             #print("Ignoring unknown chunk:", repr(type), repr(x1), repr(x2))
         elif type == b"S":
-            # Embedded image data
+            # Embedded image data. Always last chunk in this section. Might be
+            # meant as a "skip" marker, with individual "I"-chunks referencing
+            # the data stored here.
             exp_files_bytes = f.read_medium()
             files_start = f.tell()
             files_end = f.tell() + exp_files_bytes
@@ -511,6 +512,7 @@ def parse_file(arg):
             print("files started at %d, ends at %d" % (files_start, f.tell()))
             if f.tell() != files_end:
                 raise ValueError("content.files section ended at %d, expected %d" % (f.tell(), files_end))
+            break
         elif type == b"T":
             # Text
             if version == 16:
