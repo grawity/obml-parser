@@ -302,8 +302,9 @@ def parse_file(arg):
             f.read(2)
             f.read_blob()
         elif type == b"C" and version == 12:
+            # XXX: might be the same as I/N/S, just like it is for >=15
             f.read(24)
-        elif type in {b"I", b"S"} and version == 12:
+        elif type in {b"I", b"N", b"S"} and version == 12:
             # shared 'region' format
             n = f.read_byte()
             for j in range(n):
