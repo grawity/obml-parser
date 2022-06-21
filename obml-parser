@@ -30,7 +30,6 @@ line_height = "1.1"
 
 class BinaryReader():
     def __init__(self, path):
-        self.path = path
         self.fh = open(path, 'rb')
         self.url_base = "\0"
         self.last_x = 0
