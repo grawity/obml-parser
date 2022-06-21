@@ -245,7 +245,12 @@ def parse_file(arg):
             yield {"_type": "option_list",
                    "data": options}
         elif type in {b"i", b"L", b"P", b"w", b"W"}:
-            # shared 'region' format
+            # 'i' - links to image original URLs
+            # 'L' - standard text links
+            # 'P' - "platform" (mailto) links
+            # 'w' - "image download" links
+            # 'W' - links to open images in the native browser
+            # All follow the common 'region' format.
             n = f.read_byte()
             boxes = []
             for j in range(n):
@@ -260,10 +265,7 @@ def parse_file(arg):
                 link_url = f.read_url()
                 f.read(2)
                 link_type = f.read_string()
-            elif version == 12:
-                link_type = f.read_string()
-                link_url = f.read_url()
-            elif version == 6:
+            elif version in {12, 6}:
                 link_type = f.read_string()
                 link_url = f.read_url()
             if type == b"i":
@@ -284,7 +286,8 @@ def parse_file(arg):
                                "pos": pos,
                                "size": size}
         elif type in {b"C", b"I", b"N", b"S"} and version >= 15:
-            # shared 'region' format
+            # Unknown link types.
+            # All follow the common 'region' format.
             n = f.read_byte()
             for j in range(n):
                 pos = f.read_coords()
@@ -293,7 +296,8 @@ def parse_file(arg):
             assert(f.read(2) == b"\x01t")
             f.read_blob()
         elif type in {b"S"} and version == 13:
-            # shared 'region' format
+            # Unknown link types.
+            # All follow the common 'region' format.
             n = f.read_byte()
             for j in range(n):
                 pos = f.read_coords()
@@ -302,18 +306,12 @@ def parse_file(arg):
             f.read(2)
             f.read_blob()
         elif type == b"C" and version == 12:
+            # Unknown link types.
             # XXX: might be the same as I/N/S, just like it is for >=15
             f.read(24)
-        elif type in {b"I", b"N", b"S"} and version == 12:
-            # shared 'region' format
-            n = f.read_byte()
-            for j in range(n):
-                pos = f.read_coords()
-                size = f.read_coords()
-            f.read_blob()
-            f.read_blob()
-        elif type in {b"I", b"S", b"N"} and version == 6:
-            # shared 'region' format
+        elif type in {b"I", b"N", b"S"} and version in {12, 6}:
+            # Unknown link types.
+            # All follow the common <=12 'region' format.
             n = f.read_byte()
             for j in range(n):
                 pos = f.read_coords()
