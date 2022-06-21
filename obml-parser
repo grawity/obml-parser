@@ -363,6 +363,14 @@ def parse_file(arg):
             x1 = f.read_blob()
             x2 = f.read_blob()
             print("Ignoring unknown link chunk:", repr(type), boxes, repr(x1), repr(x2))
+            #if type in {}:
+            #    for pos, size in boxes:
+            #        yield {"_type": "link",
+            #               "kind": "unknown",
+            #               "href": "",
+            #               "type": link_type,
+            #               "pos": pos,
+            #               "size": size}
         else:
             raise ValueError("unknown link chunk %r/v%r" % (type, version))
 
@@ -586,6 +594,10 @@ for arg in args.obml_file:
                    '  color: gray;\n'
                    '  z-index: 150;\n'
                    '}\n'
+                   '.unknownlink {\n'
+                   '  background: orange;\n'
+                   '  z-index: 150;\n'
+                   '}\n'
                    '.text, .field {\n'
                    '  font-family: sans-serif;\n'
                    '  font-size: %s;\n'
@@ -684,6 +696,10 @@ for arg in args.obml_file:
                         "top: %dpx" % item_y,
                     ]
                     text = "↖"
+                elif item.get("kind") == "unknown":
+                    klass = "link unknownlink"
+                    style = []
+                    text = "?????"
                 else:
                     klass = "link"
                     style = [

@@ -213,9 +213,9 @@ rectangle := {
 
 `link_target` can be an _url_, a _string_, or an unknown blob.
 
-### Links: 'I', 'S' chunks
+### Links: 'I' chunks
 
-Unknown region types. These follow the "region chunk" format.
+Unknown-purpose region. (Sometimes the first field contains a URL but sometimes it's empty. The second field seems to always contain 1 `medium` inside.)
 
 ### Links: 'N' chunks
 
@@ -232,7 +232,11 @@ link_target: blob containing {
 
 ### Links: 'C' chunks
 
-In v≥15, an unknown region type. In v12, `unknown: byte[24]`; likely to also be a region type but I haven't checked yet.
+Unknown-purpose region usually near the top-left corner. (It seems the target contains `array[3] of medium`.)
+
+### Links: 'S' chunks
+
+Unknown-purpose region. (The target field contains things like `-1:2iS/5/sa`.)
 
 ### Links: 'i' chunks
 
