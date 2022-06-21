@@ -197,12 +197,15 @@ def parse_file(arg):
            "dimensions": page_size}
 
     if version >= 15:
-        f.read(6)
+        x = f.read(6)
+        print("Ignoring unknown header fields:", repr(x))
     elif version == 6:
-        f.read(1)
+        x = f.read(1)
+        print("Ignoring unknown header fields:", repr(x))
     else:
-        f.read_short()
-        f.read_medium()
+        x1 = f.read_short()
+        x2 = f.read_medium()
+        print("Ignoring unknown header fields:", repr(x1), repr(x2))
 
     # metadata section
 
@@ -212,14 +215,19 @@ def parse_file(arg):
         if None:
             pass
         elif type == b"C":
+            # Unknown.
             if version >= 15:
-                f.read(23)
+                x = f.read(23)
+                print("Ignoring unknown chunk:", repr(type), repr(x))
             else:
                 raise ValueError("unhandled metadata chunk %r/v%r" % (type, version))
         elif type == b"M":
-            f.read(2)
-            f.read_blob()
+            # Unknown metadata. Types b'C\x00' and b'u\x00' seen here.
+            x1 = f.read(2)
+            x2 = f.read_blob()
+            print("Ignoring unknown chunk:", repr(type), repr(x1), repr(x2))
         elif type == b"S":
+            # Links sub-section.
             exp_links_bytes = f.read_medium()
             break
         else:
@@ -228,6 +236,17 @@ def parse_file(arg):
     print("section 1 ends at %d" % f.tell())
 
     # link sub-section
+    #
+    # I think this is technically still a single b"S" chunk containing nested
+    # link chunks, but it's easier to parse it separately because it conflicts
+    # with a later use of b"S" chunks to contain image payloads.
+    #
+    # (There is a possibility that *this* is also just a "binary payload"
+    # chunk, just like for images, but for that to work there would need to be
+    # something else pointing at this section -- and I haven't found that yet.)
+    #
+    # In any case, link chunks definitely seem to be distinct from top-level
+    # chunks as they conflict in the b"C" type.
 
     links_start = f.tell()
     links_end = f.tell() + exp_links_bytes
@@ -239,7 +258,7 @@ def parse_file(arg):
             pass
         elif type == b"\x00":
             # <option> selections
-            f.read(1)
+            _ = f.read(1)
             n = f.read_byte()
             options = []
             for j in range(n):
@@ -263,7 +282,7 @@ def parse_file(arg):
                 boxes.append((pos, size))
             if version >= 15 or version == 13:
                 link_url = f.read_url()
-                _ = f.read(2)
+                _ = f.read(2) # Usually "\x01t" in v15
                 link_type = f.read_string()
             elif version in {12, 6}:
                 link_type = f.read_string()
@@ -289,26 +308,33 @@ def parse_file(arg):
             # Unknown link types.
             # All follow the common 'region' format.
             n = f.read_byte()
+            boxes = []
             for j in range(n):
                 pos = f.read_coords()
                 size = f.read_coords()
-            f.read_blob()
-            assert(f.read(2) == b"\x01t")
-            f.read_blob()
+                boxes.append((pos, size))
+            x1 = f.read_blob()
+            x2 = f.read(2) # Usually b"\x01t"
+            x3 = f.read_blob()
+            print("Ignoring unknown link chunk:", repr(type), boxes, repr(x1), repr(x2), repr(x3))
         elif type in {b"S"} and version == 13:
             # Unknown link types.
             # All follow the common 'region' format.
             n = f.read_byte()
+            boxes = []
             for j in range(n):
                 pos = f.read_coords()
                 size = f.read_coords()
-            f.read_blob()
-            f.read(2)
-            f.read_blob()
+                boxes.append((pos, size))
+            x1 = f.read_blob()
+            x2 = f.read(2)
+            x3 = f.read_blob()
+            print("Ignoring unknown link chunk:", repr(type), boxes, repr(x1), repr(x2), repr(x3))
         elif type == b"C" and version == 12:
             # Unknown link types.
             # XXX: might be the same as I/N/S, just like it is for >=15
-            f.read(24)
+            x = f.read(24)
+            print("Ignoring unknown link chunk:", repr(type), repr(x))
         elif type == b"N" and version == 12:
             # Anchor link.
             # Follows the common 'region' format.
@@ -318,9 +344,7 @@ def parse_file(arg):
                 pos = f.read_coords()
                 size = f.read_coords()
                 boxes.append((pos, size))
-            # The link type field is usually empty here.
-            link_type = f.read_blob()
-            # Contains b'\x00\x00\x00\x01N\x00\x03top'
+            link_type = f.read_blob() # Usually empty
             link_target = f.read_blob()
             g = BinaryReader.from_bytes(link_target)
             target_coords = g.read_coords()
@@ -336,11 +360,14 @@ def parse_file(arg):
             # Unknown link types.
             # All follow the common <=12 'region' format.
             n = f.read_byte()
+            boxes = []
             for j in range(n):
                 pos = f.read_coords()
                 size = f.read_coords()
-            f.read_blob()
-            f.read_blob()
+                boxes.append((pos, size))
+            x1 = f.read_blob()
+            x2 = f.read_blob()
+            print("Ignoring unknown link chunk:", repr(type), boxes, repr(x1), repr(x2))
         else:
             raise ValueError("unknown link chunk %r/v%r" % (type, version))
 
@@ -349,6 +376,10 @@ def parse_file(arg):
         raise ValueError("link section ended at %d, expected %d" % (f.tell(), links_end))
 
     # content section
+    #
+    # If we move link chunk handling to a nested parser, then there's a
+    # possibility for content & metadata to be merged into a single toplevel
+    # parser.
 
     content_start = f.tell()
     content_end = exp_total_bytes
@@ -361,10 +392,12 @@ def parse_file(arg):
         elif type == b"o":
             if version >= 15:
                 # TODO: not sure if actual type or just part of preceding "I"-block
-                f.read_blob()
+                x = f.read_blob()
+                print("Ignoring unknown chunk:", repr(type), repr(x))
             else:
                 raise ValueError("unhandled content chunk %r/v%r" % (type, version))
         elif type == b"B":
+            # Filled rectangle (box or line)
             if version >= 15:
                 pos = f.read_coords(rel_to_abs=True)
                 size = f.read_coords()
@@ -378,6 +411,7 @@ def parse_file(arg):
                    "size": size,
                    "fill": color}
         elif type == b"F":
+            # Form field
             if version >= 15:
                 pos = f.read_coords(rel_to_abs=True)
                 size = f.read_coords()
@@ -411,6 +445,7 @@ def parse_file(arg):
                    "size": size,
                    "color": color}
         elif type == b"I":
+            # Image area (pointer to a PNG blob)
             addr = 0
             if version == 16:
                 pos = f.read_coords(rel_to_abs=True)
@@ -437,11 +472,17 @@ def parse_file(arg):
                    "fill": color,
                    "blob": addr}
         elif type == b"L":
-            f.read(9)
+            # Unknown. Looks like 3x medium_ints?
+            x = f.read(9)
+            print("Ignoring unknown chunk:", repr(type), repr(x))
         elif type == b"M":
-            f.read(2)
-            f.read_blob()
+            # Unknown, probably the same as in "metadata" area.
+            # Type b'T\x00' seen here - the blob looks like it consists entirely of medium_ints.
+            x1 = f.read(2)
+            x2 = f.read_blob()
+            #print("Ignoring unknown chunk:", repr(type), repr(x1), repr(x2))
         elif type == b"S":
+            # Embedded image data
             exp_files_bytes = f.read_medium()
             files_start = f.tell()
             files_end = f.tell() + exp_files_bytes
@@ -458,6 +499,7 @@ def parse_file(arg):
             if f.tell() != files_end:
                 raise ValueError("content.files section ended at %d, expected %d" % (f.tell(), files_end))
         elif type == b"T":
+            # Text
             if version == 16:
                 pos = f.read_coords(rel_to_abs=True)
                 size = f.read_coords()
@@ -487,6 +529,7 @@ def parse_file(arg):
                    "pos": pos,
                    "size": size}
         elif type == b"z":
+            # Unknown.
             if version == 16:
                 f.read(6)
             else:
