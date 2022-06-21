@@ -265,13 +265,9 @@ def parse_file(arg):
                 pos = f.read_coords()
                 size = f.read_coords()
                 boxes.append((pos, size))
-            if version >= 15:
+            if version >= 15 or version == 13:
                 link_url = f.read_url()
-                assert(f.read(2) == b"\x01t")
-                link_type = f.read_string()
-            elif version == 13:
-                link_url = f.read_url()
-                f.read(2)
+                _ = f.read(2)
                 link_type = f.read_string()
             elif version in {12, 6}:
                 link_type = f.read_string()
@@ -317,6 +313,29 @@ def parse_file(arg):
             # Unknown link types.
             # XXX: might be the same as I/N/S, just like it is for >=15
             f.read(24)
+        elif type == b"N" and version == 12:
+            # Anchor link.
+            # Follows the common 'region' format.
+            n = f.read_byte()
+            boxes = []
+            for j in range(n):
+                pos = f.read_coords()
+                size = f.read_coords()
+                boxes.append((pos, size))
+            # The link type field is usually empty here.
+            link_type = f.read_blob()
+            # Contains b'\x00\x00\x00\x01N\x00\x03top'
+            link_target = f.read_blob()
+            g = BinaryReader.from_bytes(link_target)
+            target_coords = g.read_coords()
+            target_anchor = g.read_string()
+            for pos, size in boxes:
+                yield {"_type": "link",
+                       "kind": "anchor",
+                       "href": "javascript:window.scroll(%d, %d)" % target_coords,
+                       "type": link_type,
+                       "pos": pos,
+                       "size": size}
         elif type in {b"I", b"N", b"S"} and version in {12, 6}:
             # Unknown link types.
             # All follow the common <=12 'region' format.

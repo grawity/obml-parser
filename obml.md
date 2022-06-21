@@ -213,9 +213,22 @@ rectangle := {
 
 `link_target` can be an _url_, a _string_, or an unknown blob.
 
-### Links: 'I', 'N', 'S', chunks
+### Links: 'I', 'S' chunks
 
 Unknown region types. These follow the "region chunk" format.
+
+### Links: 'N' chunks
+
+Link region pointing to an internal anchor within the same page (e.g. `<a href="#top">`).
+
+At least in v12, `link_type` is empty while `link_target` is encoded as:
+
+```
+link_target: blob containing {
+	target_scroll_coords: coords
+	target_anchor_name: string
+}
+```
 
 ### Links: 'C' chunks
 
