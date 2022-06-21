@@ -330,11 +330,6 @@ def parse_file(arg):
             x2 = f.read(2)
             x3 = f.read_blob()
             print("Ignoring unknown link chunk:", repr(type), boxes, repr(x1), repr(x2), repr(x3))
-        elif type == b"C" and version == 12:
-            # Unknown link types.
-            # XXX: might be the same as I/N/S, just like it is for >=15
-            x = f.read(24)
-            print("Ignoring unknown link chunk:", repr(type), repr(x))
         elif type == b"N" and version == 12:
             # Anchor link.
             # Follows the common 'region' format.
@@ -356,7 +351,7 @@ def parse_file(arg):
                        "type": link_type,
                        "pos": pos,
                        "size": size}
-        elif type in {b"I", b"N", b"S"} and version in {12, 6}:
+        elif type in {b"C", b"I", b"N", b"S"} and version in {12, 6}:
             # Unknown link types.
             # All follow the common <=12 'region' format.
             n = f.read_byte()
@@ -468,7 +463,7 @@ def parse_file(arg):
                 size = f.read_coords()
                 color = f.read_color()
                 _x = f.read(3) # medium_int?
-                print("Ignoring unknown fields:", repr(type), repr(_x))
+                #print("Ignoring unknown fields:", repr(type), repr(_x))
                 addr = f.read_medium()
             yield {"_type": "box",
                    "kind": "image",
