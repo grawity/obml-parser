@@ -211,8 +211,9 @@ def parse_file(arg):
     # metadata section
 
     while True:
-        print("--- metadata [%d] ---" % f.tell())
+        print("--- metadata [%d] ---" % f.tell(), end=" ")
         type = f.read(1)
+        print(type)
         if None:
             pass
         elif type == b"C":
@@ -253,8 +254,9 @@ def parse_file(arg):
     links_end = f.tell() + exp_links_bytes
 
     while f.tell() < links_end:
-        print("--- links [%d] ---" % f.tell())
+        print("--- links [%d] ---" % f.tell(), end=" ")
         type = f.read(1)
+        print(type)
         if None:
             pass
         elif type == b"\x00":
@@ -389,8 +391,9 @@ def parse_file(arg):
     content_end = exp_total_bytes
 
     while f.tell() < content_end:
-        print("--- content [%d] ---" % f.tell())
+        print("--- content [%d] ---" % f.tell(), end=" ")
         type = f.read(1)
+        print(type)
         if None:
             pass
         elif type == b"B":
