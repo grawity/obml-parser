@@ -392,13 +392,6 @@ def parse_file(arg):
         type = f.read(1)
         if None:
             pass
-        elif type == b"o":
-            if version >= 15:
-                # TODO: not sure if actual type or just part of preceding "I"-block
-                x = f.read_blob()
-                print("Ignoring unknown chunk:", repr(type), repr(x))
-            else:
-                raise ValueError("unhandled content chunk %r/v%r" % (type, version))
         elif type == b"B":
             # Filled rectangle (box or line)
             if version >= 15:
@@ -455,9 +448,11 @@ def parse_file(arg):
                 size = f.read_coords()
                 color = f.read_color()
                 addr = f.read_medium()
-                _x1 = f.read(2)
-                _x2 = f.read_blob(); assert(len(_x2)) == 4
-                print("Ignoring unknown fields:", repr(type), repr(_x1), repr(_x2))
+                _x1 = f.read(2);        #assert(_x1 == b'\x02c') # 263?
+                _x2 = f.read_blob();    assert(len(_x2) == 4)
+                _x3 = f.read(1);        assert(_x3 == b'o')
+                _x4 = f.read_blob();    assert(_x4 == b'\x00\x00\x00\x00')
+                print("Ignoring unknown fields:", repr(type), repr(_x1), repr(_x2), repr(_x3), repr(_x4))
             elif version == 15:
                 pos = f.read_coords(rel_to_abs=True)
                 size = f.read_coords()
