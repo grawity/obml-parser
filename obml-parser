@@ -159,7 +159,6 @@ def css_imgdata(buf):
 
 def parse_file(arg):
     print("file =", arg)
-
     f = BinaryReader.from_path(arg)
 
     expected_size = f.read_medium()
@@ -171,6 +170,7 @@ def parse_file(arg):
         assert(expected_size == 0x02d355)
         expected_size = f.read_medium()
         version = f.read_byte()
+        print("real version =", version)
         exp_total_bytes = expected_size + 7
     elif version == 15:
         raise ValueError("bad header for version %r" % version)
@@ -188,7 +188,8 @@ def parse_file(arg):
     else:
         assert(f.read(5) == b'S\x00\x00\xff\xff')
     page_title = f.read_string()
-    f.read_blob() # 'C\x10\x10...' on v15, nil elsewhere
+    x = f.read_blob() # 'C\x10\x10...' on v15, nil elsewhere
+    #print("Ignoring unknown header field:", repr(x))
     f.url_base = f.read_string()
     page_url = f.read_url()
     yield {"_type": "head",
@@ -476,9 +477,14 @@ def parse_file(arg):
                    "fill": color,
                    "blob": addr}
         elif type == b"L":
-            # Unknown. Looks like 3x medium_ints?
-            x = f.read(9)
-            print("Ignoring unknown chunk:", repr(type), repr(x))
+            # Unknown. Looks like 3x medium_ints, might be a pointer to the link-subsection.
+            x1 = f.read_medium()
+            x2 = f.read_medium()
+            x3 = f.read_medium()
+            # It seems that total_start+x2 is the pointer to the links S-chunk
+            # while total_start+x3 is approximately the end.
+            print("Ignoring unknown chunk:", repr(type), repr(x1), repr(x2), repr(x3))
+            print("XXX", repr(total_start+x1), repr(total_start+x2), repr(total_start+x3))
         elif type == b"M":
             # Unknown, probably the same as in "metadata" area.
             # Type b'T\x00' seen here - the blob looks like it consists entirely of medium_ints.
