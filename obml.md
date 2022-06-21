@@ -324,7 +324,8 @@ I_chunk := {
 	fill: color
 	(if version == 16) {
 		file_addr: medium
-		unknown: byte[11]
+		something_count: byte
+		something: array [something_count] of { unknown: byte, unknown: blob }
 	}
 	(if version == 15) {
 		unknown: byte[14]
@@ -347,9 +348,13 @@ In v6, *file_addr* is relative to the end of *version* field in the initial head
 ```
 L_chunk := {
 	type: char = 'L'
-	unknown: byte[9]
+	unknown1: medium
+	unknown2: medium
+	unknown3: medium
 }
 ```
+
+Unknown, but the 2nd field seems to refer to the start of "Links" subsection.
 
 ### Content: 'M' chunks
 
@@ -360,12 +365,6 @@ M_chunk := {
 	unknown: blob
 }
 ```
-
-### Content: 'o' chunks
-
-Not sure if an actual chunk, or just part of the preceding 'I'-chunk.
-
-Contain `blob` with unknown data.
 
 ### Content: 'S' chunks
 
@@ -402,8 +401,8 @@ T_chunk := {
 	(if version == 16) {
 		unknown: byte
 		font: byte
-		probably_link_count: byte
-		probably_links: array [probably_link_count] of { unknown: byte, unknown: blob }
+		something_count: byte
+		something: array [something_count] of { unknown: byte, unknown: blob }
 	}
 	(if version <= 15) {
 		font: byte
