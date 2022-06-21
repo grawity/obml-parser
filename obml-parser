@@ -11,6 +11,7 @@
 # An attempt to document the file format is at:
 #   https://gist.github.com/grawity/702b31cddcc5a6622724
 
+import argparse
 import base64
 import io
 import os
@@ -502,7 +503,11 @@ def parse_file(arg):
     if f.tell() != content_end:
         raise ValueError("content section ended at %d, expected %d" % (f.tell(), content_end))
 
-for arg in sys.argv[1:]:
+parser = argparse.ArgumentParser()
+parser.add_argument("obml_file", nargs="+")
+args = parser.parse_args()
+
+for arg in args.obml_file:
     with open("%s.html" % arg, "w", encoding="utf-8") as fout:
         id_alloc = iter(infinity())
         boxes_by_fileaddr = {}
