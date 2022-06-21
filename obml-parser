@@ -14,6 +14,7 @@
 import argparse
 import base64
 import io
+import itertools
 import os
 import struct
 import sys
@@ -131,12 +132,6 @@ class BinaryReader():
             # earlier absolute coordinates (which are only used for sizes)
             pass
         return self.debug("-> coords[%s]" % ("rel" if rel_to_abs else "abs"), (x, y))
-
-def infinity(start=0):
-    i = start
-    while True:
-        yield i
-        i += 1
 
 def strhex(buf):
     return " ".join(["%02X" % x for x in buf])
@@ -509,12 +504,12 @@ args = parser.parse_args()
 
 for arg in args.obml_file:
     with open("%s.html" % arg, "w", encoding="utf-8") as fout:
-        id_alloc = iter(infinity())
+        id_alloc = itertools.count()
         boxes_by_fileaddr = {}
         empty_boxes = set()
         option_lists = {}
-        n_option_lists = iter(infinity())
-        n_select_fields = iter(infinity())
+        n_option_lists = itertools.count()
+        n_select_fields = itertools.count()
 
         fout.write('<!DOCTYPE html>\n')
         fout.write('<meta charset="utf-8">\n')
