@@ -559,14 +559,8 @@ def parse_file(arg):
     if f.tell() != content_end:
         raise ValueError("content section ended at %d, expected %d" % (f.tell(), content_end))
 
-parser = argparse.ArgumentParser()
-parser.add_argument("obml_file", nargs="*")
-args = parser.parse_args()
 
-if not args.obml_file:
-    args.obml_file = glob.glob("*.obml*")
-
-for arg in args.obml_file:
+def process_one_file(arg):
     with open("%s.html" % arg, "w", encoding="utf-8") as fout:
         id_alloc = itertools.count()
         boxes_by_fileaddr = {}
@@ -740,3 +734,14 @@ for arg in args.obml_file:
                 fout.write('</script>\n')
         for box_id in sorted(empty_boxes):
             print("warning: image box %r is missing a file" % box_id, file=sys.stderr)
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("obml_file", nargs="*")
+args = parser.parse_args()
+
+if not args.obml_file:
+    args.obml_file = glob.glob("*.obml*")
+
+for arg in args.obml_file:
+    process_one_file(arg)
