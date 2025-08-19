@@ -8,4 +8,4 @@ requires-python = ">= 3.4"
 dependencies = []
 
 [project.scripts]
-obml-parser = "lib:main"
+obml-parser = "lib.main:main"

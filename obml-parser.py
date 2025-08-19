@@ -8,5 +8,5 @@
 # dropped binary compatibilty between minor releases and left me with a bunch
 # of unreadable saved pages in v15.
 
-from lib import main
+from lib.main import main
 main()
