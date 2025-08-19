@@ -11,9 +11,7 @@
 import argparse
 import base64
 import glob
-import io
 import itertools
-from pprint import pprint
 import sys
 import urllib.parse
 
