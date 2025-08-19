@@ -1,0 +1,8 @@
+[project]
+name = "obml-parser"
+version = "0"
+description = "Opera Mini .obml saved page converter"
+readme = "README.md"
+license = "MIT"
+requires-python = ">= 3.4"
+dependencies = []
