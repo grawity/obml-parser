@@ -17,3 +17,6 @@ def main():
 
     for arg in args.obml_file:
         process_one_file(arg)
+
+if __name__ == "__main__":
+    main()
