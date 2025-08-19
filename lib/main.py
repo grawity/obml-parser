@@ -12,5 +12,8 @@ def main():
     if not args.obml_file:
         args.obml_file = glob.glob("*.obml*")
 
+    if not args.obml_file:
+        exit("obml-parser: No files specified.")
+
     for arg in args.obml_file:
         process_one_file(arg)
